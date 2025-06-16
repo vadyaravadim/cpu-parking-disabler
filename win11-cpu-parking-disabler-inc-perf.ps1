@@ -1,151 +1,148 @@
 # ============================================================================
 # Windows 11 CPU Performance Optimizer
-# Отключает паркинг CPU и настраивает максимальную производительность процессора
+# Disables CPU parking and configures maximum processor performance
 # 
-# Автор: https://github.com/[ваш-username]
-# Версия: 1.0
-# Требования: Windows 11, запуск от имени администратора
+# Author: https://github.com/vadyaravadim
+# Version: 1.0
+# Requirements: Windows 11, Run as Administrator
 # ============================================================================
 
-# Настройка максимальной производительности процессора
-# Запускать от имени администратора!
-
 Write-Host "==================================="
-Write-Host "НАСТРОЙКА ПРОИЗВОДИТЕЛЬНОСТИ CPU"
+Write-Host "CPU PERFORMANCE OPTIMIZER"
 Write-Host "==================================="
 Write-Host ""
 
-# Проверка прав администратора
+# Check Administrator privileges
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Host "ОШИБКА: Запустите PowerShell от имени администратора!"
+    Write-Host "ERROR: Run PowerShell as Administrator!"
     pause
     exit
 }
 
-# 1. Активация схемы Ultimate Performance
-Write-Host "1. Настройка схемы электропитания..."
+# 1. Activate Ultimate Performance power scheme
+Write-Host "1. Configuring power scheme..."
 try {
     powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
     $currentScheme = powercfg -getactivescheme
-    Write-Host "   ✓ Активная схема: $currentScheme"
+    Write-Host "   ✓ Active scheme: $currentScheme"
 } catch {
     $currentScheme = powercfg -getactivescheme
-    Write-Host "   - Текущая схема: $currentScheme"
+    Write-Host "   - Current scheme: $currentScheme"
 }
 
-# 2. Отключение паркинга CPU
+# 2. Disable CPU parking
 Write-Host ""
-Write-Host "2. Отключение паркинга процессора..."
+Write-Host "2. Disabling CPU core parking..."
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
 powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
 $parkingAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $parkingDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
-Write-Host "   ✓ Паркинг CPU отключен"
+Write-Host "   ✓ CPU parking disabled"
 Write-Host "   → AC: $parkingAC | DC: $parkingDC"
 
-# 3. Минимальное состояние процессора
+# 3. Minimum processor state
 Write-Host ""
-Write-Host "3. Минимальное состояние процессора..."
+Write-Host "3. Setting minimum processor state..."
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
 powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
 $minAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $minDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
-Write-Host "   ✓ Минимальное состояние установлено"
+Write-Host "   ✓ Minimum processor state set"
 Write-Host "   → AC: $minAC | DC: $minDC"
 
-# 4. Максимальное состояние процессора
+# 4. Maximum processor state
 Write-Host ""
-Write-Host "4. Максимальное состояние процессора..."
+Write-Host "4. Setting maximum processor state..."
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX 100
 powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX 100
 $maxAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $maxDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
-Write-Host "   ✓ Максимальное состояние установлено"
+Write-Host "   ✓ Maximum processor state set"
 Write-Host "   → AC: $maxAC | DC: $maxDC"
 
-# 5. Пороги производительности процессора
+# 5. Performance thresholds
 Write-Host ""
-Write-Host "5. Настройка порогов производительности..."
+Write-Host "5. Configuring performance thresholds..."
 
-# Порог увеличения производительности (агрессивный: 10%)
+# Performance increase threshold (aggressive: 10%)
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFINCTHRESHOLD 10
 powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFINCTHRESHOLD 10
 $incAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFINCTHRESHOLD | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $incDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFINCTHRESHOLD | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
-Write-Host "   ✓ Порог увеличения производительности установлен"
+Write-Host "   ✓ Performance increase threshold set"
 Write-Host "   → AC: $incAC | DC: $incDC"
 
-# Порог снижения производительности (консервативный: 80%) 
+# Performance decrease threshold (conservative: 80%) 
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD 80
 powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD 80
 $decAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $decDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
-Write-Host "   ✓ Порог снижения производительности установлен"
+Write-Host "   ✓ Performance decrease threshold set"
 Write-Host "   → AC: $decAC | DC: $decDC"
 
-# 7. Настройки реестра для CPU
+# 6. Registry configuration
 Write-Host ""
-Write-Host "6. Настройка реестра..."
+Write-Host "6. Configuring registry..."
 try {
-    # Показываем настройки паркинга CPU в панели управления
+    # Show CPU parking settings in power options
     reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\0cc5b647-c1df-4637-891a-dec35c318583" /v Attributes /t REG_DWORD /d 0 /f | Out-Null
     
-    # Показываем дополнительные настройки производительности процессора
+    # Show additional processor performance settings
     reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\06cadf0e-64ed-448a-8927-ce7bf90eb35d" /v Attributes /t REG_DWORD /d 0 /f | Out-Null
     reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\12a0ab44-fe28-4fa9-b3bd-4b64f44960a6" /v Attributes /t REG_DWORD /d 0 /f | Out-Null
     
-    Write-Host "   ✓ Ключи реестра обновлены"
+    Write-Host "   ✓ Registry keys updated"
     
-    # Проверка ключей реестра
+    # Verify registry keys
     $parkingKey = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\0cc5b647-c1df-4637-891a-dec35c318583" -Name "Attributes" -ErrorAction SilentlyContinue
-    Write-Host "   → Паркинг CPU в панели управления: $($parkingKey.Attributes)"
+    Write-Host "   → CPU parking in power options: $($parkingKey.Attributes)"
     
 } catch {
-    Write-Host "   ⚠️ Ошибка настройки реестра" -ForegroundColor Yellow
+    Write-Host "   ⚠️ Registry configuration error" -ForegroundColor Yellow
 }
 
-# Применение настроек
+# Apply settings
 Write-Host ""
-Write-Host "Применение настроек..."
+Write-Host "Applying settings..."
 powercfg -setactive SCHEME_CURRENT
 
-# Создание резервной копии
+# Create backup
 $backupPath = "$env:USERPROFILE\Desktop\cpu_performance_backup.pow"
 powercfg -export $backupPath SCHEME_CURRENT
-Write-Host "✓ Резервная копия: $backupPath"
+Write-Host "✓ Backup saved: $backupPath"
 
 Write-Host ""
 Write-Host "==================================="
-Write-Host "НАСТРОЙКА ЗАВЕРШЕНА"
+Write-Host "CONFIGURATION COMPLETED"
 Write-Host "==================================="
 Write-Host ""
-Write-Host "Все настройки применены успешно!"
-Write-Host "Резервная копия сохранена на рабочем столе."
+Write-Host "All settings applied successfully!"
+Write-Host "Backup saved to desktop."
 Write-Host ""
-Write-Host "Для полного применения изменений реестра"
-Write-Host "рекомендуется перезагрузить компьютер."
+Write-Host "For full registry changes to take effect,"
+Write-Host "a system restart is recommended."
 Write-Host ""
 
-$reboot = Read-Host "Перезагрузить компьютер сейчас? (y/n)"
-if ($reboot -eq "y" -or $reboot -eq "Y" -or $reboot -eq "да" -or $reboot -eq "Да") {
+$reboot = Read-Host "Restart computer now? (y/n)"
+if ($reboot -eq "y" -or $reboot -eq "Y") {
     Write-Host ""
-    Write-Host "Перезагрузка через 10 секунд..."
-    Write-Host "Нажмите Ctrl+C для отмены"
+    Write-Host "Restarting in 10 seconds..."
+    Write-Host "Press Ctrl+C to cancel"
     
     for ($i = 10; $i -gt 0; $i--) {
-        Write-Host "Перезагрузка через $i секунд..." -NoNewline
+        Write-Host "Restarting in $i seconds..." -NoNewline
         Start-Sleep -Seconds 1
         Write-Host "`r" -NoNewline
     }
     
     Write-Host ""
-    Write-Host "Перезагрузка..." -ForegroundColor Green
+    Write-Host "Restarting..." -ForegroundColor Green
     Restart-Computer -Force
 } else {
     Write-Host ""
-    Write-Host "Перезагрузка отменена." -ForegroundColor Yellow
-    Write-Host "Не забудьте перезагрузить компьютер позже для"
-    Write-Host "полного применения изменений реестра!"
+    Write-Host "Restart cancelled." -ForegroundColor Yellow
+    Write-Host "Don't forget to restart your computer later"
+    Write-Host "for full registry changes to take effect!"
 }
 
 pause
