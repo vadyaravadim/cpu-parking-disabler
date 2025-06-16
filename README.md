@@ -11,10 +11,49 @@ Disable CPU parking on Windows 11 for better performance and responsiveness.
 
 ## Why use this?
 
-CPU parking causes micro-stutters and delays when cores need to "wake up". This is especially noticeable in:
-- Gaming (input lag, frame drops)
-- Real-time applications (audio/video editing)
-- Any task requiring instant CPU response
+CPU parking causes **micro-stutters** and delays when cores need to "wake up" from sleep state. This is especially problematic with:
+
+### Modern CPU Issues
+- **Intel 12th-14th gen** (Alder Lake, Raptor Lake) - hybrid architecture with P-cores and E-cores
+- **E-core parking delays** - efficiency cores take time to activate
+- **Scheduler conflicts** - Windows doesn't always wake the right cores fast enough
+- **Frame time spikes** - irregular CPU boost behavior causes stuttering
+
+### Common Symptoms
+- **Microstutters in games** - brief freezes every few seconds
+- **Input lag spikes** - mouse/keyboard delays during CPU transitions  
+- **Inconsistent frame times** - smooth FPS but jerky motion
+- **Audio crackling** - real-time audio processing affected
+- **Browser lag** - scrolling and video playback stutters
+
+### Affected Hardware
+- Intel Core i5/i7/i9 12th, 13th, 14th generation
+- AMD Ryzen with Precision Boost
+- Any multi-core CPU with parking enabled
+- High refresh rate monitors (120Hz+)
+- VR headsets requiring consistent frame timing
+
+## Technical Background
+
+**CPU Parking** is Windows' aggressive power-saving feature that puts unused cores to sleep. While good for battery life, it causes problems with modern CPUs:
+
+### Intel Hybrid Architecture (12th-14th gen)
+- **P-cores** (Performance) - 4-8 high-speed cores
+- **E-cores** (Efficiency) - 8-16 slower cores  
+- **Parking delays** - E-cores take 1-15ms to wake up
+- **Scheduler confusion** - Windows often parks the wrong cores
+
+### The Problem
+1. Game needs more CPU power
+2. Windows tries to wake parked cores
+3. **1-15ms delay** while cores activate
+4. **Microstutter** or frame drop occurs
+5. By the time cores wake up, the moment has passed
+
+### Why This Script Works
+- **Forces 100% cores active** - no wake-up delays
+- **Aggressive thresholds** - instant boost on any load
+- **Bypasses Windows scheduler** - manual control over power states
 
 ## How to use
 
