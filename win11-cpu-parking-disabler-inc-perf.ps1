@@ -19,18 +19,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit
 }
 
-# 1. Activate Ultimate Performance power scheme
-Write-Host "1. Configuring power scheme..."
-try {
-    powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-    $currentScheme = powercfg -getactivescheme
-    Write-Host "   ✓ Active scheme: $currentScheme"
-} catch {
-    $currentScheme = powercfg -getactivescheme
-    Write-Host "   - Current scheme: $currentScheme"
-}
-
-# 2. Disable CPU parking
+# 1. Disable CPU parking
 Write-Host ""
 Write-Host "2. Disabling CPU core parking..."
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
@@ -38,9 +27,13 @@ powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
 $parkingAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $parkingDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 Write-Host "   ✓ CPU parking disabled"
-Write-Host "   → AC: $parkingAC | DC: $parkingDC"
+if ($parkingDC -and $parkingDC -ne $parkingAC) {
+    Write-Host "   → AC: $parkingAC | DC: $parkingDC"
+} else {
+    Write-Host "   → AC: $parkingAC"
+}
 
-# 3. Minimum processor state
+# 2. Minimum processor state
 Write-Host ""
 Write-Host "3. Setting minimum processor state..."
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
@@ -48,9 +41,13 @@ powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
 $minAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $minDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 Write-Host "   ✓ Minimum processor state set"
-Write-Host "   → AC: $minAC | DC: $minDC"
+if ($minDC -and $minDC -ne $minAC) {
+    Write-Host "   → AC: $minAC | DC: $minDC"
+} else {
+    Write-Host "   → AC: $minAC"
+}
 
-# 4. Maximum processor state
+# 3. Maximum processor state
 Write-Host ""
 Write-Host "4. Setting maximum processor state..."
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX 100
@@ -58,9 +55,13 @@ powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX 100
 $maxAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $maxDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 Write-Host "   ✓ Maximum processor state set"
-Write-Host "   → AC: $maxAC | DC: $maxDC"
+if ($maxDC -and $maxDC -ne $maxAC) {
+    Write-Host "   → AC: $maxAC | DC: $maxDC"
+} else {
+    Write-Host "   → AC: $maxAC"
+}
 
-# 5. Performance thresholds
+# 4. Performance thresholds
 Write-Host ""
 Write-Host "5. Configuring performance thresholds..."
 
@@ -70,17 +71,25 @@ powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFINCTHRESHOLD 10
 $incAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFINCTHRESHOLD | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $incDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFINCTHRESHOLD | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 Write-Host "   ✓ Performance increase threshold set"
-Write-Host "   → AC: $incAC | DC: $incDC"
+if ($incDC -and $incDC -ne $incAC) {
+    Write-Host "   → AC: $incAC | DC: $incDC"
+} else {
+    Write-Host "   → AC: $incAC"
+}
 
-# Performance decrease threshold (conservative: 80%) 
-powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD 80
-powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD 80
+# Performance decrease threshold (conservative: 40%) 
+powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD 40
+powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD 40
 $decAC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 $decDC = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFDECTHRESHOLD | Select-String "Current DC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 Write-Host "   ✓ Performance decrease threshold set"
-Write-Host "   → AC: $decAC | DC: $decDC"
+if ($decDC -and $decDC -ne $decAC) {
+    Write-Host "   → AC: $decAC | DC: $decDC"
+} else {
+    Write-Host "   → AC: $decAC"
+}
 
-# 6. Registry configuration
+# 5. Registry configuration
 Write-Host ""
 Write-Host "6. Configuring registry..."
 try {
@@ -101,12 +110,9 @@ try {
     Write-Host "   ⚠️ Registry configuration error" -ForegroundColor Yellow
 }
 
-# Apply settings
-Write-Host ""
-Write-Host "Applying settings..."
-powercfg -setactive SCHEME_CURRENT
-
 # Create backup
+Write-Host ""
+Write-Host "Creating backup..."
 $backupPath = "$env:USERPROFILE\Desktop\cpu_performance_backup.pow"
 powercfg -export $backupPath SCHEME_CURRENT
 Write-Host "✓ Backup saved: $backupPath"
