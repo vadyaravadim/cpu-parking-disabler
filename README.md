@@ -1,5 +1,7 @@
 # CPU Parking Disabler
 
+**Keywords:** Windows 11 stuttering, Intel 12th 13th 14th gen performance, CPU parking fix, gaming microstutters, frame drops
+
 Disable CPU parking on Windows 11 for better performance and responsiveness.
 
 ## What it does
@@ -101,6 +103,27 @@ powercfg -restoredefaultschemes
 
 ✅ **Good for**: Desktop PCs, gaming, performance work  
 ❌ **Consider avoiding**: Laptops on battery, systems with cooling issues
+
+## ⚠️ Important Warnings
+
+**This script modifies system power settings. Use at your own risk.**
+
+- ❌ **NOT recommended for laptops on battery** - will drain battery faster
+- ❌ **Check your cooling** - higher temperatures possible  
+- ✅ **Desktop PCs** - generally safe with proper cooling
+- 💾 **Backup created automatically** - stored on your desktop
+- ⚠️ **Check your voltage** - higher temperatures and cpu degradation possible  
+
+## Compatibility
+
+✅ **Tested on:**
+- Intel 12th, 13th, 14th generation CPUs
+- Windows 11 (all versions)
+- AMD Ryzen 5000+ series
+
+❓ **May work on:**
+- Older Intel generations
+- Windows 10 (not extensively tested)
 
 ## Requirements
 
