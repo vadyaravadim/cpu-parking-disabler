@@ -1,4 +1,4 @@
-# Windows 11 CPU Performance Optimizer
+# Windows 11 CPU Parking Disabler
 
 Eliminate micro-stutters and input lag by disabling CPU parking and configuring aggressive processor power settings for Windows 11.
 
@@ -46,7 +46,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 **3. Run the script:**
 ```powershell
-.\cpu-performance-optimizer.ps1
+.\cpu-parking-disabler.ps1
 ```
 
 **4. Restart when prompted**
@@ -112,4 +112,4 @@ MIT License - Use at your own risk. Monitor temperatures after applying changes.
 
 ---
 
-**Version 2.0** | [Report Issues](https://github.com/vadyaravadim/windows11-cpu-optimizer/issues)
+**Version 2.0** | [Report Issues](https://github.com/vadyaravadim/cpu-parking-disabler/issues)
