@@ -1,149 +1,115 @@
-# CPU Parking Disabler
+# Windows 11 CPU Performance Optimizer
 
-**Keywords:** Windows 11 stuttering, Intel 12th 13th 14th gen performance, CPU parking fix, gaming microstutters, frame drops
+Eliminate micro-stutters and input lag by disabling CPU parking and configuring aggressive processor power settings for Windows 11.
 
-Disable CPU parking on Windows 11 for better performance and responsiveness.
+**Keywords:** Windows 11 CPU parking disable, Intel Alder Lake Raptor Lake stuttering fix, frame drops micro-stutters, gaming performance optimization, E-core P-core scheduling
 
-## What it does
+---
 
-- **Disables CPU parking** - all cores stay active instead of going to sleep
-- **Sets CPU to 100% minimum state** - no more waiting for cores to wake up
-- **Unlocks hidden power options** - shows CPU parking settings in Control Panel
-- **Creates backup** - saves your current settings for easy restore
+## ⚡ What It Does
 
-## Why use this?
+- Disables CPU core parking (all cores stay active)
+- Sets min/max processor state to 100%
+- Enables aggressive Processor Performance Boost Mode
+- Optimizes performance increase/decrease thresholds (10%/60%)
+- Unlocks 8 hidden power settings in Windows UI
+- Creates automatic backup
 
-CPU parking causes **micro-stutters** and delays when cores need to "wake up" from sleep state. This is especially problematic with:
+## 🎯 Problem Solved
 
-### Modern CPU Issues
-- **Intel 12th-14th gen** (Alder Lake, Raptor Lake) - hybrid architecture with P-cores and E-cores
-- **E-core parking delays** - efficiency cores take time to activate
-- **Scheduler conflicts** - Windows doesn't always wake the right cores fast enough
-- **Frame time spikes** - irregular CPU boost behavior causes stuttering
+Modern Intel CPUs (12th-14th gen) and AMD Ryzen processors experience **micro-stutters** due to CPU parking - cores take 1-15ms to wake up, causing frame drops and input lag spikes.
 
-### Common Symptoms
-- **Microstutters in games** - brief freezes every few seconds
-- **Input lag spikes** - mouse/keyboard delays during CPU transitions  
-- **Inconsistent frame times** - smooth FPS but jerky motion
-- **Audio crackling** - real-time audio processing affected
-- **Browser lag** - scrolling and video playback stutters
+**Symptoms:**
+- Stuttering in games despite high FPS
+- Input lag spikes
+- Frame time inconsistency
+- Audio crackling
 
-### Affected Hardware
-- Intel Core i5/i7/i9 12th, 13th, 14th generation
-- AMD Ryzen with Precision Boost
-- Any multi-core CPU with parking enabled
-- High refresh rate monitors (120Hz+)
-- VR headsets requiring consistent frame timing
-
-## Technical Background
-
-**CPU Parking** is Windows' aggressive power-saving feature that puts unused cores to sleep. While good for battery life, it causes problems with modern CPUs:
-
-### Intel Hybrid Architecture (12th-14th gen)
-- **P-cores** (Performance) - 4-8 high-speed cores
-- **E-cores** (Efficiency) - 8-16 slower cores  
-- **Parking delays** - E-cores take 1-15ms to wake up
-- **Scheduler confusion** - Windows often parks the wrong cores
-
-### The Problem
-1. Game needs more CPU power
-2. Windows tries to wake parked cores
-3. **1-15ms delay** while cores activate
-4. **Microstutter** or frame drop occurs
-5. By the time cores wake up, the moment has passed
-
-### Why This Script Works
-- **Forces 100% cores active** - no wake-up delays
-- **Aggressive thresholds** - instant boost on any load
-- **Bypasses Windows scheduler** - manual control over power states
-
-## How to use
-
-1. **Download** `cpu-parking-disabler.ps1`
-
-2. **Right-click** on PowerShell → **Run as Administrator**
-
-3. **Allow script execution** (one-time setup):
-   ```powershell
-   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
-
-4. **Run the script**:
-   ```powershell
-   .\cpu-parking-disabler.ps1
-   ```
-
-5. **Restart** when prompted (recommended)
-
-## What changes
+## 📊 Changes Applied
 
 | Setting | Before | After |
 |---------|--------|-------|
-| CPU Parking | Enabled | **Disabled** |
-| Minimum CPU State | 5-10% | **100%** |
-| Maximum CPU State | 100% | **100%** |
-| Performance Thresholds | 30%/10% | **10%/80%** |
+| CPU Parking | Enabled | **Disabled (100)** |
+| Min/Max Processor State | 5% / 100% | **100% / 100%** |
+| Boost Mode | Default | **Aggressive (2)** |
+| Performance Thresholds | 30% / 40% | **10% / 60%** |
+| Core Wake Delay | 1-15ms | **0ms** |
 
-## How to undo
+## 🚀 Installation
 
-The script creates a backup file on your desktop. To restore:
+**1. Run PowerShell as Administrator**
 
-```powershell
-powercfg -import "C:\Users\YourName\Desktop\cpu_performance_backup.pow"
-```
-
-Or reset to Windows defaults:
-```powershell
-powercfg -restoredefaultschemes
-```
-
-## Important notes
-
-⚠️ **This will increase power consumption and heat**
-
-✅ **Good for**: Desktop PCs, gaming, performance work  
-❌ **Consider avoiding**: Laptops on battery, systems with cooling issues
-
-## ⚠️ Important Warnings
-
-**This script modifies system power settings. Use at your own risk.**
-
-- ❌ **NOT recommended for laptops on battery** - will drain battery faster
-- ❌ **Check your cooling** - higher temperatures possible  
-- ✅ **Desktop PCs** - generally safe with proper cooling
-- 💾 **Backup created automatically** - stored on your desktop
-- ⚠️ **Check your voltage** - higher temperatures and cpu degradation possible  
-
-## Compatibility
-
-✅ **Tested on:**
-- Intel 12th, 13th, 14th generation CPUs
-- Windows 11 (all versions)
-- AMD Ryzen 5000+ series
-
-❓ **May work on:**
-- Older Intel generations
-- Windows 10 (not extensively tested)
-
-## Requirements
-
-- Windows 11
-- Administrator privileges
-- PowerShell
-
-## Troubleshooting
-
-**"Execution Policy" error?**
+**2. Enable script execution (one-time):**
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-**"Access Denied" error?**  
-Make sure PowerShell is running as Administrator
+**3. Run the script:**
+```powershell
+.\cpu-performance-optimizer.ps1
+```
 
-**Settings not visible in Control Panel?**  
-Restart required for registry changes
+**4. Restart when prompted**
 
-## License
+## ✅ Recommended For
 
-MIT License - Use at your own risk
+- Desktop PCs with proper cooling
+- Gaming systems (especially 120Hz+ monitors)
+- Intel 12th/13th/14th gen CPUs
+- AMD Ryzen 5000/7000 series
+- VR gaming
+- Workstations requiring consistent performance
+
+## ⚠️ Not Recommended For
+
+- Laptops on battery (significant battery drain)
+- Systems with inadequate cooling
+- Small form factor / fanless PCs
+
+## 🔄 Rollback
+
+**Using backup:**
+```powershell
+powercfg -import "$env:USERPROFILE\Desktop\cpu_performance_backup.pow"
+powercfg -setactive SCHEME_CURRENT
+```
+
+**Reset to defaults:**
+```powershell
+powercfg -restoredefaultschemes
+```
+
+## 🔥 Side Effects
+
+- **+10-30W idle power consumption**
+- **+5-10°C temperatures**
+- **Increased fan noise**
+- Monitor temps with HWiNFO64, keep under 85°C
+
+## 🛠️ Troubleshooting
+
+**Execution policy error:**
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**Access denied:** Run PowerShell as Administrator
+
+**Settings not visible:** Restart required for registry changes
+
+## 💻 Compatibility
+
+**Tested:**
+- Intel 12th/13th/14th gen (Alder Lake, Raptor Lake)
+- AMD Ryzen 5000/7000 series
+- Windows 11 (23H2, 24H2)
+
+**May work:** Intel 10th/11th gen, Windows 10
+
+## 📝 License
+
+MIT License - Use at your own risk. Monitor temperatures after applying changes.
+
+---
+
+**Version 2.0** | [Report Issues](https://github.com/vadyaravadim/windows11-cpu-optimizer/issues)
