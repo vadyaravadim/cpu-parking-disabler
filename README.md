@@ -113,3 +113,5 @@ MIT License - Use at your own risk. Monitor temperatures after applying changes.
 ---
 
 **Version 2.0** | [Report Issues](https://github.com/vadyaravadim/cpu-parking-disabler/issues)
+
+⭐ If this script helped you, consider giving it a star!
