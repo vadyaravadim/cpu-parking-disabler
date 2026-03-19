@@ -2,3 +2,4 @@
 *.pow
 .vs/
 .vscode/
+.claude/
