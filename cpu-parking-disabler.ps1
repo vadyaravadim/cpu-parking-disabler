@@ -54,15 +54,21 @@ Write-Host "Backup saved: $backupPath" -ForegroundColor Green
 Write-Host ""
 
 # ============================================================================
-# Registry pre-config: unhide P-core settings (Class 1) for hybrid CPUs
-# Must be done BEFORE setting values so powercfg can access them
+# Registry pre-config: unhide power settings so powercfg can access them
+# Must be done BEFORE setting values — hidden settings may be ignored by OS
 # ============================================================================
 $regBase = "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00"
 
-# CPMINCORES1 - Core Parking Min Cores for P-cores
+# CPMINCORES - Core Parking Min Cores (E-cores / all cores)
+reg add "$regBase\0cc5b647-c1df-4637-891a-dec35c318583" /v Attributes /t REG_DWORD /d 0 /f 2>$null | Out-Null
+
+# CPMINCORES1 - Core Parking Min Cores (P-cores, hybrid CPUs)
 reg add "$regBase\0cc5b647-c1df-4637-891a-dec35c318584" /v Attributes /t REG_DWORD /d 0 /f 2>$null | Out-Null
 
-# PERFEPP1 - Energy Performance Preference for P-cores
+# PERFEPP - Energy Performance Preference (E-cores / all cores)
+reg add "$regBase\36687f9e-e3a5-4dbf-b1dc-15eb381c6863" /v Attributes /t REG_DWORD /d 0 /f 2>$null | Out-Null
+
+# PERFEPP1 - Energy Performance Preference (P-cores, hybrid CPUs)
 reg add "$regBase\36687f9e-e3a5-4dbf-b1dc-15eb381c6864" /v Attributes /t REG_DWORD /d 0 /f 2>$null | Out-Null
 
 # ============================================================================
