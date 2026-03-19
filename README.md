@@ -1,39 +1,36 @@
-# Windows 11 CPU Parking Disabler
+# CPU Parking Disabler
 
-Eliminate micro-stutters and input lag by disabling CPU parking and configuring aggressive processor power settings for Windows 11.
-
-**Keywords:** Windows 11 CPU parking disable, Intel Alder Lake Raptor Lake stuttering fix, frame drops micro-stutters, gaming performance optimization, E-core P-core scheduling
+Eliminate micro-stutters and input lag by disabling CPU core parking on Windows 10/11.
 
 ---
 
 ## ⚡ What It Does
 
-- Disables CPU core parking (all cores stay active)
-- Sets min/max processor state to 100%
-- Enables aggressive Processor Performance Boost Mode
-- Optimizes performance increase/decrease thresholds (10%/60%)
-- Unlocks 8 hidden power settings in Windows UI
-- Creates automatic backup
+1. **Backs up** your current power scheme to Desktop (`.pow` file)
+2. **Disables CPU core parking** — all cores stay active, no wake-up latency
+3. **Sets EPP to max performance** — tells the CPU to favor performance over power saving
+
+That's it. No other settings are touched. Your current power scheme is modified in-place.
+
+## 📊 Settings Changed
+
+| powercfg Name | Description | Before | After |
+|---------------|-------------|--------|-------|
+| `CPMINCORES` | Core Parking Min Cores (E-cores / all cores) | 10-50% | **100%** |
+| `CPMINCORES1` | Core Parking Min Cores (P-cores, hybrid CPUs) | 10-50% | **100%** |
+| `PERFEPP` | Energy Performance Preference (E-cores / all cores) | 50 | **0** |
+| `PERFEPP1` | Energy Performance Preference (P-cores, hybrid CPUs) | 50 | **0** |
+
+> `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only exist on Intel 12th gen+ hybrid CPUs. The script unhides them via registry before applying values.
 
 ## 🎯 Problem Solved
 
-Modern Intel CPUs (12th-14th gen) and AMD Ryzen processors experience **micro-stutters** due to CPU parking - cores take 1-15ms to wake up, causing frame drops and input lag spikes.
+CPU core parking puts idle cores to sleep. When load spikes, waking cores takes 1-15ms — causing micro-stutters, frame drops, and input lag. This script keeps all cores active so they respond instantly.
 
-**Symptoms:**
+**Symptoms this fixes:**
 - Stuttering in games despite high FPS
 - Input lag spikes
 - Frame time inconsistency
-- Audio crackling
-
-## 📊 Changes Applied
-
-| Setting | Before | After |
-|---------|--------|-------|
-| CPU Parking | Enabled | **Disabled (100)** |
-| Min/Max Processor State | 5% / 100% | **100% / 100%** |
-| Boost Mode | Default | **Aggressive (2)** |
-| Performance Thresholds | 30% / 40% | **10% / 60%** |
-| Core Wake Delay | 1-15ms | **0ms** |
 
 ## 🚀 Installation
 
@@ -49,69 +46,55 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\cpu-parking-disabler.ps1
 ```
 
-**4. Restart when prompted**
+No parameters, no configuration. Run and done.
 
-## ✅ Recommended For
+## ✅ How to Verify
 
-- Desktop PCs with proper cooling
-- Gaming systems (especially 120Hz+ monitors)
-- Intel 12th/13th/14th gen CPUs
-- AMD Ryzen 5000/7000 series
-- VR gaming
-- Workstations requiring consistent performance
+**Check with powercfg:**
+```powershell
+powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES
+powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFEPP
+```
 
-## ⚠️ Not Recommended For
+Both should show `Current AC Power Setting Index: 0x00000064` (100) for CPMINCORES and `0x00000000` (0) for PERFEPP.
 
-- Laptops on battery (significant battery drain)
-- Systems with inadequate cooling
-- Small form factor / fanless PCs
+**Check with Resource Monitor:**
+1. Open Resource Monitor → CPU tab
+2. All cores should show as "Running" (not "Parked")
 
 ## 🔄 Rollback
 
-**Using backup:**
+**From backup** (saved on your Desktop):
 ```powershell
-powercfg -import "$env:USERPROFILE\Desktop\cpu_performance_backup.pow"
+powercfg -import "$env:USERPROFILE\Desktop\power_scheme_backup.pow"
 powercfg -setactive SCHEME_CURRENT
 ```
 
-**Reset to defaults:**
+**Full reset to Windows defaults:**
 ```powershell
 powercfg -restoredefaultschemes
 ```
 
-## 🔥 Side Effects
+## ⚠️ Side Effects
 
-- **+10-30W idle power consumption**
-- **+5-10°C temperatures**
-- **Increased fan noise**
-- Monitor temps with HWiNFO64, keep under 85°C
+- **Higher idle power consumption** (+10-30W)
+- **Higher temperatures** (+5-10°C)
+- **More fan noise**
 
-## 🛠️ Troubleshooting
-
-**Execution policy error:**
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-**Access denied:** Run PowerShell as Administrator
-
-**Settings not visible:** Restart required for registry changes
+Not recommended for laptops on battery or systems with poor cooling. Monitor temps with HWiNFO64 — keep under 85°C.
 
 ## 💻 Compatibility
 
-**Tested:**
-- Intel 12th/13th/14th gen (Alder Lake, Raptor Lake)
-- AMD Ryzen 5000/7000 series
-- Windows 11 (23H2, 24H2)
-
-**May work:** Intel 10th/11th gen, Windows 10
+| | Supported |
+|---|-----------|
+| **Intel** | 10th gen and newer (12th+ for hybrid P/E-core support) |
+| **AMD** | Ryzen 5000/7000/9000 series |
+| **Windows** | 10, 11 (23H2, 24H2) |
 
 ## 📝 License
 
-MIT License - Use at your own risk. Monitor temperatures after applying changes.
+MIT License — use at your own risk.
 
 ---
 
-**Version 2.0** | [Report Issues](https://github.com/vadyaravadim/cpu-parking-disabler/issues)
-
-⭐ If this script helped you, consider giving it a star!
+[Report Issues](https://github.com/vadyaravadim/cpu-parking-disabler/issues) · ⭐ If this helped, consider starring the project!
