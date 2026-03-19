@@ -1,100 +1,129 @@
+<div align="center">
+
 # CPU Parking Disabler
 
-Eliminate micro-stutters and input lag by disabling CPU core parking on Windows 10/11.
+**Kill micro-stutters. Keep all cores awake. One command.**
+
+Disables CPU core parking and sets Energy Performance Preference to maximum on Windows 10/11.
+Zero install. Zero dependencies. Just a PowerShell script.
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)](https://www.microsoft.com/windows)
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)](https://docs.microsoft.com/en-us/powershell/)
+![GitHub Stars](https://img.shields.io/github/stars/vadyaravadim/cpu-parking-disabler?style=social)
+
+</div>
 
 ---
 
-## ⚡ What It Does
+## Quick Start
+
+**One-liner** (run PowerShell as Admin):
+
+```powershell
+irm https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1 | iex
+```
+
+Or clone and run:
+
+```powershell
+git clone https://github.com/vadyaravadim/cpu-parking-disabler.git
+cd cpu-parking-disabler
+.\cpu-parking-disabler.ps1
+```
+
+No parameters, no configuration. Run and done.
+
+## What It Does
 
 1. **Backs up** your current power scheme to Desktop (`.pow` file)
 2. **Disables CPU core parking** — all cores stay active, no wake-up latency
-3. **Sets EPP to max performance** — tells the CPU to favor performance over power saving
+3. **Sets EPP to max performance** — CPU favors performance over power saving
 
 That's it. No other settings are touched. Your current power scheme is modified in-place.
 
-## 📊 Settings Changed
+## Before & After
 
-| powercfg Name | Description | Before | After |
-|---------------|-------------|--------|-------|
-| `CPMINCORES` | Core Parking Min Cores (E-cores / all cores) | 10-50% | **100%** |
-| `CPMINCORES1` | Core Parking Min Cores (P-cores, hybrid CPUs) | 10-50% | **100%** |
+<!--
+    Replace these with actual screenshots:
+    1. Open Resource Monitor → CPU tab
+    2. Take a screenshot BEFORE running the script (cores show "Parked")
+    3. Run the script
+    4. Take a screenshot AFTER (all cores show "Running")
+    5. Save images to assets/ folder and update paths below
+-->
+
+| Before | After |
+|--------|-------|
+| ![before](assets/before.png) | ![after](assets/after.png) |
+
+> Cores marked **Parked** → all cores **Running**. Open Resource Monitor → CPU tab to verify on your system.
+
+## Settings Changed
+
+| Setting | Description | Before | After |
+|---------|-------------|--------|-------|
+| `CPMINCORES` | Core Parking Min Cores (E-cores / all cores) | 10–50% | **100%** |
+| `CPMINCORES1` | Core Parking Min Cores (P-cores, hybrid CPUs) | 10–50% | **100%** |
 | `PERFEPP` | Energy Performance Preference (E-cores / all cores) | 50 | **0** |
 | `PERFEPP1` | Energy Performance Preference (P-cores, hybrid CPUs) | 50 | **0** |
 
 > `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only exist on Intel 12th gen+ hybrid CPUs. The script unhides them via registry before applying values.
 
-## 🎯 Problem Solved
+## The Problem
 
-CPU core parking puts idle cores to sleep. When load spikes, waking cores takes 1-15ms — causing micro-stutters, frame drops, and input lag. This script keeps all cores active so they respond instantly.
+CPU core parking puts idle cores to sleep. When load spikes, waking cores takes **1–15 ms** — causing micro-stutters, frame drops, and input lag. This script keeps all cores active so they respond instantly.
 
 **Symptoms this fixes:**
 - Stuttering in games despite high FPS
 - Input lag spikes
 - Frame time inconsistency
 
-## 🚀 Installation
+## Verify
 
-**1. Run PowerShell as Administrator**
-
-**2. Enable script execution (one-time):**
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-**3. Run the script:**
-```powershell
-.\cpu-parking-disabler.ps1
-```
-
-No parameters, no configuration. Run and done.
-
-## ✅ How to Verify
-
-**Check with powercfg:**
 ```powershell
 powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES
 powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFEPP
 ```
 
-Both should show `Current AC Power Setting Index: 0x00000064` (100) for CPMINCORES and `0x00000000` (0) for PERFEPP.
+CPMINCORES should show `0x00000064` (100), PERFEPP should show `0x00000000` (0).
 
-**Check with Resource Monitor:**
-1. Open Resource Monitor → CPU tab
-2. All cores should show as "Running" (not "Parked")
+## Rollback
 
-## 🔄 Rollback
-
-**From backup** (saved on your Desktop):
+From backup (saved on Desktop):
 ```powershell
-powercfg -import "$env:USERPROFILE\Desktop\power_scheme_backup.pow"
-powercfg -setactive SCHEME_CURRENT
+powercfg -import "$env:USERPROFILE\Desktop\power_scheme_backup_*.pow"
 ```
 
-**Full reset to Windows defaults:**
+Full reset to Windows defaults:
 ```powershell
 powercfg -restoredefaultschemes
 ```
 
-## ⚠️ Side Effects
+## Side Effects
 
-- **Higher idle power consumption** (+10-30W)
-- **Higher temperatures** (+5-10°C)
+- **Higher idle power** (+10–30 W) — not recommended on battery
+- **Higher temps** (+5–10 °C) — monitor with [HWiNFO64](https://www.hwinfo.com/), keep under 85 °C
 - **More fan noise**
 
-Not recommended for laptops on battery or systems with poor cooling. Monitor temps with HWiNFO64 — keep under 85°C.
-
-## 💻 Compatibility
+## Compatibility
 
 | | Supported |
 |---|-----------|
-| **Intel** | 10th gen and newer (12th+ for hybrid P/E-core support) |
-| **AMD** | Ryzen 5000/7000/9000 series |
+| **Intel** | 10th gen+ (12th+ for hybrid P/E-core support) |
+| **AMD** | Ryzen 5000 / 7000 / 9000 |
 | **Windows** | 10, 11 (23H2, 24H2) |
 
-## 📝 License
+## License
 
-MIT License — use at your own risk.
+[MIT](LICENSE) — use at your own risk.
 
 ---
 
-[Report Issues](https://github.com/vadyaravadim/cpu-parking-disabler/issues) · ⭐ If this helped, consider starring the project!
+<div align="center">
+
+If this fixed your stutters, consider giving it a ⭐
+
+[Report Issues](https://github.com/vadyaravadim/cpu-parking-disabler/issues)
+
+</div>

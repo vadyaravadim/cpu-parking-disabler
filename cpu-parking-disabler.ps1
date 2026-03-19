@@ -21,6 +21,15 @@
 #>
 
 # ============================================================================
+# Helper: query current AC value for a power setting
+# ============================================================================
+function Get-PowerSettingAC($Setting) {
+    powercfg -query SCHEME_CURRENT SUB_PROCESSOR $Setting |
+        Select-String "Current AC Power Setting Index" |
+        ForEach-Object { $_.ToString().Split(':')[1].Trim() }
+}
+
+# ============================================================================
 # Admin check
 # ============================================================================
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
@@ -38,7 +47,8 @@ Write-Host ""
 # ============================================================================
 # Backup current power scheme to Desktop
 # ============================================================================
-$backupPath = "$env:USERPROFILE\Desktop\power_scheme_backup.pow"
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$backupPath = "$env:USERPROFILE\Desktop\power_scheme_backup_$timestamp.pow"
 powercfg -export $backupPath SCHEME_CURRENT 2>$null | Out-Null
 Write-Host "Backup saved: $backupPath" -ForegroundColor Green
 Write-Host ""
@@ -68,8 +78,8 @@ powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES1 100
 powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES1 100
 
-$parkingE = powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
-$parkingP = powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES1 | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
+$parkingE = Get-PowerSettingAC "CPMINCORES"
+$parkingP = Get-PowerSettingAC "CPMINCORES1"
 
 if ($parkingP) {
     Write-Host "   E-cores: $parkingE | P-cores: $parkingP" -ForegroundColor Yellow
@@ -91,8 +101,8 @@ powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFEPP 0
 powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFEPP1 0
 powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFEPP1 0
 
-$eppE = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFEPP | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
-$eppP = powercfg -query SCHEME_CURRENT SUB_PROCESSOR PERFEPP1 | Select-String "Current AC Power Setting Index" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
+$eppE = Get-PowerSettingAC "PERFEPP"
+$eppP = Get-PowerSettingAC "PERFEPP1"
 
 if ($eppP) {
     Write-Host "   E-cores: $eppE | P-cores: $eppP" -ForegroundColor Yellow
