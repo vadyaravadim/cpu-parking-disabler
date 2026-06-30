@@ -2,9 +2,9 @@
 
 # CPU Parking Disabler
 
-**Kill micro-stutters. Keep all cores awake. One command.**
+**Kill micro-stutters. Unpark every core. One command.**
 
-Disables CPU core parking and sets Energy Performance Preference to maximum on Windows 10/11.
+Disables CPU core parking (a.k.a. **unparking your CPU cores**) and sets Energy Performance Preference to maximum on Windows 10/11.
 Zero install. Zero dependencies. Just download and run.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -45,7 +45,7 @@ No parameters, no configuration. Run and done.
 ## What It Does
 
 1. **Backs up** your current power scheme to Desktop (`.pow` file)
-2. **Disables CPU core parking** — all cores stay active, no wake-up latency
+2. **Disables CPU core parking** (unparks all cores) — all cores stay active, no wake-up latency
 3. **Sets EPP to max performance** — CPU favors performance over power saving
 
 That's it. No other settings are touched. Your current power scheme is modified in-place.
@@ -54,7 +54,7 @@ That's it. No other settings are touched. Your current power scheme is modified 
 
 | Before | After |
 |--------|-------|
-| ![before](assets/before.png) | ![after](assets/after.png) |
+| ![Windows Resource Monitor showing several CPU cores Parked before running the script](assets/before.png) | ![All CPU cores unparked and Running after disabling core parking](assets/after.png) |
 
 > Cores marked **Parked** → all cores **Running**. Open Resource Monitor → CPU tab to verify on your system.
 
@@ -115,6 +115,29 @@ powercfg -restoredefaultschemes
 | **Intel** | 10th gen+ (12th+ for hybrid P/E-core support) |
 | **AMD** | Ryzen 5000 / 7000 / 9000 |
 | **Windows** | 10, 11 (23H2, 24H2) |
+
+## FAQ
+
+### What is CPU core parking?
+A Windows power-management feature that puts idle CPU cores into a low-power **parked** state. Waking a parked core takes ~1–15 ms, which can cause micro-stutters, frame-time spikes, and input lag under bursty load.
+
+### What does "unpark CPU cores" mean?
+Unparking means forcing Windows to keep every core active instead of parking idle ones. This script **unparks all CPU cores** by setting Core Parking Min Cores to 100%.
+
+### Does disabling core parking increase FPS?
+It mainly improves **1% lows, frame-time consistency, and input latency** — not average FPS. If your stutter comes from core wake-up latency, unparking helps; if your CPU never parks under load, you won't notice a difference.
+
+### Is it safe to unpark CPU cores?
+Yes. It only changes power settings and backs up your current scheme first, so you can always roll back. The trade-offs are higher idle power and temperatures (see [Side Effects](#side-effects)), not hardware risk — keep temps under ~85 °C.
+
+### Do the changes survive a reboot?
+Yes. The values are written into your active Windows power scheme, so they persist across reboots until you roll back (or a major Windows update resets power schemes).
+
+### How is this different from ParkControl (Bitsum)?
+ParkControl is a GUI app. This is a zero-install, open-source PowerShell script that applies the same core-parking + EPP tweak directly via `powercfg`/registry, creates a backup, and leaves **no background process** behind. Use whichever you prefer — this is the lightweight, transparent, scriptable option.
+
+### How do I re-enable core parking?
+Restore the `.pow` backup saved to your Desktop — see [Rollback](#rollback).
 
 ## License
 
