@@ -89,12 +89,15 @@ CPMINCORES should show `0x00000064` (100), PERFEPP should show `0x00000000` (0).
 
 ## Rollback
 
-From backup (saved on Desktop):
+**From your backup** (saved on Desktop) — in an Administrator PowerShell:
 ```powershell
-powercfg -import "$env:USERPROFILE\Desktop\power_scheme_backup_*.pow"
+$bak  = (Get-ChildItem "$env:USERPROFILE\Desktop\power_scheme_backup_*.pow" | Sort-Object LastWriteTime)[-1].FullName
+$guid = [regex]::Match((powercfg -import $bak), '[0-9a-fA-F-]{36}').Value
+powercfg -setactive $guid
 ```
+`powercfg -import` restores the saved scheme as a new entry and prints its GUID; `-setactive` switches to it. It appears as a duplicate in your scheme list — drop the leftover with `powercfg -delete <GUID>` if you like. (Plain `powercfg -import file.pow` alone does **not** roll back: it neither overwrites the active scheme nor activates the copy.)
 
-Full reset to Windows defaults:
+**Full reset to Windows defaults** — simplest, but resets *all* power schemes:
 ```powershell
 powercfg -restoredefaultschemes
 ```

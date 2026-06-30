@@ -145,7 +145,8 @@ Write-Host "  - CPU parking: DISABLED (all cores always active)"
 Write-Host "  - EPP: 0 (max performance)"
 Write-Host ""
 Write-Host "Backup: $backupPath"
-Write-Host "Rollback: powercfg -import `"$backupPath`"" -ForegroundColor DarkGray
+Write-Host "Roll back (in an Administrator PowerShell) - re-imports this backup and activates it:" -ForegroundColor DarkGray
+Write-Host "  `$g=[regex]::Match((powercfg -import `"$backupPath`"),'[0-9a-fA-F-]{36}').Value; powercfg -setactive `$g" -ForegroundColor DarkGray
 Write-Host ""
 
 pause
