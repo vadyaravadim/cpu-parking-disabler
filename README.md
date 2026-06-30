@@ -5,7 +5,7 @@
 **Kill micro-stutters. Keep all cores awake. One command.**
 
 Disables CPU core parking and sets Energy Performance Preference to maximum on Windows 10/11.
-Zero install. Zero dependencies. Just a PowerShell script.
+Zero install. Zero dependencies. Just download and run.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)](https://www.microsoft.com/windows)
@@ -18,13 +18,21 @@ Zero install. Zero dependencies. Just a PowerShell script.
 
 ## Quick Start
 
-**One-liner** (run PowerShell as Admin):
+**Easiest — download & double-click:**
+
+1. Click **Code ▸ Download ZIP** at the top of this page, then unzip.
+2. Double-click **`Run.bat`**.
+3. Click **Yes** on the UAC prompt.
+
+The script requests admin rights via UAC on its own — no need to open an admin console manually.
+
+**One-liner** instead (in an Administrator PowerShell):
 
 ```powershell
 irm https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1 | iex
 ```
 
-Or clone and run:
+**Or clone:**
 
 ```powershell
 git clone https://github.com/vadyaravadim/cpu-parking-disabler.git
@@ -43,15 +51,6 @@ No parameters, no configuration. Run and done.
 That's it. No other settings are touched. Your current power scheme is modified in-place.
 
 ## Before & After
-
-<!--
-    Replace these with actual screenshots:
-    1. Open Resource Monitor → CPU tab
-    2. Take a screenshot BEFORE running the script (cores show "Parked")
-    3. Run the script
-    4. Take a screenshot AFTER (all cores show "Running")
-    5. Save images to assets/ folder and update paths below
--->
 
 | Before | After |
 |--------|-------|

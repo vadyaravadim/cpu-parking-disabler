@@ -7,35 +7,56 @@
     Energy Performance Preference (PERFEPP/PERFEPP1 = 0) on the current power scheme.
 
     Supports Intel 12th gen+ hybrid CPUs (separate P-core/E-core settings) and
-    traditional non-hybrid CPUs (AMD Ryzen, older Intel).
+    traditional non-hybrid CPUs (AMD Ryzen, older Intel). Class 1 (P-core) settings
+    that don't exist on non-hybrid CPUs are skipped silently.
 
-    A backup of the current power scheme is saved to the Desktop before any changes.
+    The script relaunches itself as Administrator if needed, and saves a backup of
+    the current power scheme to the Desktop before any changes.
 
 .EXAMPLE
     .\cpu-parking-disabler.ps1
 
-    Run as Administrator. No parameters needed.
+    Double-click Run.bat, or right-click this file > Run with PowerShell.
+    No parameters needed — it elevates itself.
 
 .LINK
     https://github.com/vadyaravadim/cpu-parking-disabler
 #>
 
 # ============================================================================
-# Helper: query current AC value for a power setting
+# Self-elevation: relaunch as Administrator if not already elevated
 # ============================================================================
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+
+if (-not $isAdmin) {
+    if ($PSCommandPath) {
+        # Launched from a file — relaunch elevated. -ExecutionPolicy Bypass keeps a
+        # downloaded script from being blocked by ExecutionPolicy / Mark-of-the-Web.
+        Start-Process powershell -Verb RunAs -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
+        )
+        return
+    }
+    # Launched via `irm ... | iex` — no file on disk to relaunch, so just instruct.
+    Write-Host "ERROR: Open PowerShell as Administrator, then run the command again." -ForegroundColor Red
+    return
+}
+
+# ============================================================================
+# Helpers
+# ============================================================================
+# Query current AC value for a processor power setting (silent if it doesn't exist)
 function Get-PowerSettingAC($Setting) {
-    powercfg -query SCHEME_CURRENT SUB_PROCESSOR $Setting |
+    powercfg -query SCHEME_CURRENT SUB_PROCESSOR $Setting 2>$null |
         Select-String "Current AC Power Setting Index" |
         ForEach-Object { $_.ToString().Split(':')[1].Trim() }
 }
 
-# ============================================================================
-# Admin check
-# ============================================================================
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Host "ERROR: Run PowerShell as Administrator!" -ForegroundColor Red
-    pause
-    exit
+# Apply a processor setting to both AC and DC. Settings absent on this CPU
+# (e.g. Class 1 / P-core settings on non-hybrid CPUs) are skipped silently.
+function Set-PowerSettingValue($Setting, $Value) {
+    powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR $Setting $Value 2>$null
+    powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR $Setting $Value 2>$null
 }
 
 Write-Host ""
@@ -76,13 +97,8 @@ reg add "$regBase\36687f9e-e3a5-4dbf-b1dc-15eb381c6864" /v Attributes /t REG_DWO
 # ============================================================================
 Write-Host "1. Disabling CPU core parking..."
 
-# E-cores (Class 0) - or all cores on non-hybrid CPUs
-powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
-powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
-
-# P-cores (Class 1) - Intel 12th gen+ hybrid CPUs only
-powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES1 100
-powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES1 100
+Set-PowerSettingValue "CPMINCORES" 100    # E-cores (Class 0) / all cores on non-hybrid
+Set-PowerSettingValue "CPMINCORES1" 100   # P-cores (Class 1) — hybrid CPUs only
 
 $parkingE = Get-PowerSettingAC "CPMINCORES"
 $parkingP = Get-PowerSettingAC "CPMINCORES1"
@@ -99,13 +115,8 @@ if ($parkingP) {
 Write-Host ""
 Write-Host "2. Setting Energy Performance Preference to max performance..."
 
-# E-cores (Class 0) - or all cores on non-hybrid CPUs
-powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFEPP 0
-powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFEPP 0
-
-# P-cores (Class 1) - Intel 12th gen+ hybrid CPUs only
-powercfg -setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFEPP1 0
-powercfg -setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFEPP1 0
+Set-PowerSettingValue "PERFEPP" 0    # E-cores (Class 0) / all cores on non-hybrid
+Set-PowerSettingValue "PERFEPP1" 0   # P-cores (Class 1) — hybrid CPUs only
 
 $eppE = Get-PowerSettingAC "PERFEPP"
 $eppP = Get-PowerSettingAC "PERFEPP1"
