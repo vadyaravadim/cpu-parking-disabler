@@ -154,7 +154,10 @@ Restore the `.pow` backup saved to your Desktop — see [Rollback](#rollback).
 
 ## Related
 
-- [MSI Mode Utility](https://github.com/vadyaravadim/msi-mode-utility) — enable MSI mode (Message Signaled Interrupts) for GPU, USB, network & audio devices to cut DPC latency and input lag. Same idea: one transparent PowerShell script, built-in rollback.
+- [MSI Mode Utility](https://github.com/vadyaravadim/msi-mode-utility) — enable MSI mode (Message Signaled Interrupts) for GPU, USB, network & audio devices to cut DPC latency and input lag
+- [Timer Resolution Utility](https://github.com/vadyaravadim/timer-resolution-utility) — set 0.5 ms timer resolution, disable dynamic tick, un-force HPET — with a built-in Sleep(1) benchmark
+
+Same idea across all three: one transparent PowerShell script, built-in rollback.
 
 ## License
 
