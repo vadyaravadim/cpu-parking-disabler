@@ -139,6 +139,10 @@ ParkControl is a GUI app. This is a zero-install, open-source PowerShell script 
 ### How do I re-enable core parking?
 Restore the `.pow` backup saved to your Desktop — see [Rollback](#rollback).
 
+## Related
+
+- [MSI Mode Utility](https://github.com/vadyaravadim/msi-mode-utility) — enable MSI mode (Message Signaled Interrupts) for GPU, USB, network & audio devices to cut DPC latency and input lag. Same idea: one transparent PowerShell script, built-in rollback.
+
 ## License
 
 [MIT](LICENSE) — use at your own risk.
