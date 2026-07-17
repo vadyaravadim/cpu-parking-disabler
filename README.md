@@ -69,7 +69,7 @@ That's it. No other settings are touched. Your current power scheme is modified 
 
 > `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only exist on Intel 12th gen+ hybrid CPUs. The script unhides them via registry before applying values.
 
-## The Problem
+## The Problem: Why Core Parking Causes Stutters
 
 CPU core parking puts idle cores to sleep. When load spikes, waking cores takes **1–15 ms** — causing micro-stutters, frame drops, and input lag. This script keeps all cores active so they respond instantly.
 
@@ -78,7 +78,11 @@ CPU core parking puts idle cores to sleep. When load spikes, waking cores takes 
 - Input lag spikes
 - Frame time inconsistency
 
-## Verify
+## Verify: Check If Your CPU Cores Are Parked
+
+**Resource Monitor** (`resmon`) → **CPU** tab: parked cores are labeled **Parked** next to the core graph; after running the script every core should say **Running**.
+
+Or check the applied values directly:
 
 ```powershell
 powercfg -query SCHEME_CURRENT SUB_PROCESSOR CPMINCORES
@@ -133,8 +137,17 @@ Yes. It only changes power settings and backs up your current scheme first, so y
 ### Do the changes survive a reboot?
 Yes. The values are written into your active Windows power scheme, so they persist across reboots until you roll back (or a major Windows update resets power schemes).
 
+### How do I check if my CPU cores are parked?
+Open **Resource Monitor** (Win+R → `resmon`) → **CPU** tab: parked cores are labeled **Parked**. See [Verify](#verify-check-if-your-cpu-cores-are-parked) for the `powercfg` commands that show the underlying settings.
+
 ### How is this different from ParkControl (Bitsum)?
 ParkControl is a GUI app. This is a zero-install, open-source PowerShell script that applies the same core-parking + EPP tweak directly via `powercfg`/registry, creates a backup, and leaves **no background process** behind. Use whichever you prefer — this is the lightweight, transparent, scriptable option.
+
+### How is this different from Quick CPU?
+Quick CPU (Coder Bag) is a closed-source GUI app for monitoring and tuning many CPU parameters, core parking among them. This script does one thing — unpark all cores and max out EPP — with no install, no background process, and readable source. If you only want core parking gone, this is the smaller hammer.
+
+### Can I disable core parking through the registry (ValueMax method)?
+Registry guides that tell you to search for `0cc5b647-c1df-4637-891a-dec35c318583` and edit `ValueMax`/`Attributes` are manipulating the same **Core Parking Min Cores** setting this script changes. `powercfg` is the documented interface for it — same result, no manual registry surgery, plus a backup file.
 
 ### How do I re-enable core parking?
 Restore the `.pow` backup saved to your Desktop — see [Rollback](#rollback).
