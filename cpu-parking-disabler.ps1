@@ -17,7 +17,7 @@
     .\cpu-parking-disabler.ps1
 
     Double-click Run.bat, or right-click this file > Run with PowerShell.
-    No parameters needed — it elevates itself.
+    No parameters needed - it elevates itself.
 
 .LINK
     https://github.com/vadyaravadim/cpu-parking-disabler
@@ -26,27 +26,25 @@
 # ============================================================================
 # Self-elevation: relaunch as Administrator if not already elevated
 # ============================================================================
-# Canonical raw URL of this script — used to relaunch elevated when running
-# via `irm <url> | iex`, where there is no file on disk to relaunch with -File.
-$ScriptUrl = 'https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1'
-
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
 
 if (-not $isAdmin) {
+    $scriptPath = $PSCommandPath
+    if (-not $scriptPath) {
+        # Launched via `irm ... | iex` - no file on disk to relaunch. Persist the
+        # text that is actually executing and elevate that, not a re-download:
+        # what the user piped in (a fork, a branch, a local copy) is what must
+        # run under Administrator. UTF-8 with BOM: -File reads it correctly on
+        # PS 5.1 whatever the piped content contains.
+        $body = $MyInvocation.MyCommand.Definition
+        if (-not $body) { Write-Host "ERROR: cannot recover the executing script text; save the script to a file and run it with -File." -ForegroundColor Red; return }
+        $scriptPath = Join-Path $env:TEMP 'cpu-parking-disabler.ps1'
+        [IO.File]::WriteAllText($scriptPath, $body, [Text.Encoding]::UTF8)
+    }
     try {
-        if ($PSCommandPath) {
-            # Launched from a file — relaunch elevated. -ExecutionPolicy Bypass keeps a
-            # downloaded script from being blocked by ExecutionPolicy / Mark-of-the-Web.
-            $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`"")
-        } else {
-            # Launched via `irm ... | iex` — no file on disk to relaunch, so
-            # re-run the one-liner itself elevated. try/catch: if the download
-            # fails, the elevated window would otherwise close before the error
-            # can be read.
-            $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-                "try { irm $ScriptUrl | iex } catch { Write-Host `$_ -ForegroundColor Red; Read-Host 'Press Enter to close' }")
-        }
-        Start-Process powershell -Verb RunAs -ArgumentList $argList
+        # -ExecutionPolicy Bypass keeps a downloaded script from being blocked
+        # by ExecutionPolicy / Mark-of-the-Web.
+        Start-Process powershell -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`"")
     } catch {
         Write-Host "ERROR: elevation was refused. Run this script as Administrator." -ForegroundColor Red
     }
@@ -91,7 +89,7 @@ Write-Host ""
 
 # ============================================================================
 # Registry pre-config: unhide power settings so powercfg can access them
-# Must be done BEFORE setting values — hidden settings may be ignored by OS
+# Must be done BEFORE setting values - hidden settings may be ignored by OS
 # ============================================================================
 $regBase = "HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00"
 
@@ -113,7 +111,7 @@ reg add "$regBase\36687f9e-e3a5-4dbf-b1dc-15eb381c6864" /v Attributes /t REG_DWO
 Write-Host "1. Disabling CPU core parking..."
 
 Set-PowerSettingValue "CPMINCORES" 100    # E-cores (Class 0) / all cores on non-hybrid
-Set-PowerSettingValue "CPMINCORES1" 100   # P-cores (Class 1) — hybrid CPUs only
+Set-PowerSettingValue "CPMINCORES1" 100   # P-cores (Class 1) - hybrid CPUs only
 
 $parkingE = Get-PowerSettingAC "CPMINCORES"
 $parkingP = Get-PowerSettingAC "CPMINCORES1"
@@ -131,7 +129,7 @@ Write-Host ""
 Write-Host "2. Setting Energy Performance Preference to max performance..."
 
 Set-PowerSettingValue "PERFEPP" 0    # E-cores (Class 0) / all cores on non-hybrid
-Set-PowerSettingValue "PERFEPP1" 0   # P-cores (Class 1) — hybrid CPUs only
+Set-PowerSettingValue "PERFEPP1" 0   # P-cores (Class 1) - hybrid CPUs only
 
 $eppE = Get-PowerSettingAC "PERFEPP"
 $eppP = Get-PowerSettingAC "PERFEPP1"
