@@ -156,8 +156,9 @@ Restore the `.pow` backup saved to your Desktop — see [Rollback](#rollback).
 
 - [MSI Mode Utility](https://github.com/vadyaravadim/msi-mode-utility) — enable MSI mode (Message Signaled Interrupts) for GPU, USB, network & audio devices to cut DPC latency and input lag
 - [Timer Resolution Utility](https://github.com/vadyaravadim/timer-resolution-utility) — set 0.5 ms timer resolution, disable dynamic tick, un-force HPET — with a built-in Sleep(1) benchmark
+- [GameDVR & FSO Disabler](https://github.com/vadyaravadim/gamedvr-fso-disabler) — disable Game DVR / Xbox Game Bar capture and Fullscreen Optimizations on Windows 10/11 to fix capture stutters and frame drops
 
-Same idea across all three: one transparent PowerShell script, built-in rollback.
+Same idea across all four: one transparent PowerShell script, built-in rollback.
 
 ## License
 
