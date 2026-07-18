@@ -68,8 +68,12 @@ Write-Host ""
 # ============================================================================
 # Backup current power scheme to Desktop
 # ============================================================================
+# The suffix loop keeps two runs within the same second from clobbering
+# each other's backup (powercfg -export overwrites silently).
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupPath = "$env:USERPROFILE\Desktop\power_scheme_backup_$timestamp.pow"
+$n = 1
+while (Test-Path $backupPath) { $backupPath = "$env:USERPROFILE\Desktop\power_scheme_backup_${timestamp}_$n.pow"; $n++ }
 powercfg -export $backupPath SCHEME_CURRENT 2>$null | Out-Null
 Write-Host "Backup saved: $backupPath" -ForegroundColor Green
 Write-Host ""
