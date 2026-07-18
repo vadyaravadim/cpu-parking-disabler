@@ -26,19 +26,30 @@
 # ============================================================================
 # Self-elevation: relaunch as Administrator if not already elevated
 # ============================================================================
+# Canonical raw URL of this script — used to relaunch elevated when running
+# via `irm <url> | iex`, where there is no file on disk to relaunch with -File.
+$ScriptUrl = 'https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1'
+
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
 
 if (-not $isAdmin) {
-    if ($PSCommandPath) {
-        # Launched from a file — relaunch elevated. -ExecutionPolicy Bypass keeps a
-        # downloaded script from being blocked by ExecutionPolicy / Mark-of-the-Web.
-        Start-Process powershell -Verb RunAs -ArgumentList @(
-            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
-        )
-        return
+    try {
+        if ($PSCommandPath) {
+            # Launched from a file — relaunch elevated. -ExecutionPolicy Bypass keeps a
+            # downloaded script from being blocked by ExecutionPolicy / Mark-of-the-Web.
+            $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`"")
+        } else {
+            # Launched via `irm ... | iex` — no file on disk to relaunch, so
+            # re-run the one-liner itself elevated. try/catch: if the download
+            # fails, the elevated window would otherwise close before the error
+            # can be read.
+            $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+                "try { irm $ScriptUrl | iex } catch { Write-Host `$_ -ForegroundColor Red; Read-Host 'Press Enter to close' }")
+        }
+        Start-Process powershell -Verb RunAs -ArgumentList $argList
+    } catch {
+        Write-Host "ERROR: elevation was refused. Run this script as Administrator." -ForegroundColor Red
     }
-    # Launched via `irm ... | iex` — no file on disk to relaunch, so just instruct.
-    Write-Host "ERROR: Open PowerShell as Administrator, then run the command again." -ForegroundColor Red
     return
 }
 

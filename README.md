@@ -26,7 +26,7 @@ Zero install. Zero dependencies. Just download and run.
 
 The script requests admin rights via UAC on its own — no need to open an admin console manually.
 
-**One-liner** instead (in an Administrator PowerShell):
+**One-liner** instead (in any PowerShell — it self-elevates):
 
 ```powershell
 irm https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1 | iex
