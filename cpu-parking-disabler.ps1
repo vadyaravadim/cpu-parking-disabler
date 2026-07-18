@@ -24,27 +24,46 @@
 #>
 
 # ============================================================================
+# irm | iex bootstrap: rerun from a real file if launched piped
+# ============================================================================
+# Launched via `irm <url> | iex` - no file on disk. Save the script to the
+# user profile and rerun it from there (the rerun handles elevation).
+if (-not $PSCommandPath) {
+    # The piped text is not recoverable from inside iex ($MyInvocation there
+    # holds the caller's command line, not the script body) - download the
+    # script.
+    try {
+        $body = Invoke-RestMethod 'https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1' -TimeoutSec 30
+    } catch {
+        Write-Host "ERROR: could not download the script ($($_.Exception.Message)). Check your internet connection, or save the script to a file and run it from there." -ForegroundColor Red
+        return
+    }
+    $saved = Join-Path $env:USERPROFILE 'cpu-parking-disabler.ps1'
+    if ((Test-Path $saved) -and ([IO.File]::ReadAllText($saved) -cne $body)) {
+        Copy-Item $saved "$saved.bak" -Force
+        Write-Host "Existing $saved differs - previous copy kept as $saved.bak" -ForegroundColor Yellow
+    }
+    [IO.File]::WriteAllText($saved, $body, [Text.Encoding]::UTF8)
+    Write-Host "Script saved to: $saved" -ForegroundColor Cyan
+    powershell -NoProfile -ExecutionPolicy Bypass -File $saved
+    # The rerun's exit code stays in $LASTEXITCODE for scripted callers.
+    return
+}
+
+# ============================================================================
 # Self-elevation: relaunch as Administrator if not already elevated
 # ============================================================================
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
 
 if (-not $isAdmin) {
-    $scriptPath = $PSCommandPath
-    if (-not $scriptPath) {
-        # Launched via `irm ... | iex` - no file on disk to relaunch, and the
-        # piped text is not recoverable from inside iex ($MyInvocation there
-        # holds the caller's command line, not the script body). Download to a
-        # file and elevate that.
-        $scriptPath = Join-Path $env:TEMP 'cpu-parking-disabler.ps1'
-        Invoke-RestMethod 'https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1' -OutFile $scriptPath
-        if (-not (Test-Path $scriptPath)) { Write-Host "ERROR: could not download the script; save it to a file and run it with -File." -ForegroundColor Red; return }
-    }
     try {
         # -ExecutionPolicy Bypass keeps a downloaded script from being blocked
         # by ExecutionPolicy / Mark-of-the-Web.
-        Start-Process powershell -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`"")
+        Start-Process powershell -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`"")
     } catch {
-        Write-Host "ERROR: elevation was refused. Run this script as Administrator." -ForegroundColor Red
+        # Not always a refusal (UAC service disabled, ...) - show the real cause.
+        Write-Host "ERROR: elevation failed ($($_.Exception.Message)). Run this script as Administrator." -ForegroundColor Red
+        Read-Host "Press Enter to close" | Out-Null
     }
     return
 }

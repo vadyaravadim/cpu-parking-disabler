@@ -32,6 +32,8 @@ The script requests admin rights via UAC on its own — no need to open an admin
 irm https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1 | iex
 ```
 
+The script saves itself to `%USERPROFILE%\cpu-parking-disabler.ps1` and reruns from there; an existing copy at that path that differs is kept as `.bak`. The power-scheme backup still goes to the Desktop.
+
 **Or clone:**
 
 ```powershell
