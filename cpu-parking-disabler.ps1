@@ -31,15 +31,13 @@ $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIde
 if (-not $isAdmin) {
     $scriptPath = $PSCommandPath
     if (-not $scriptPath) {
-        # Launched via `irm ... | iex` - no file on disk to relaunch. Persist the
-        # text that is actually executing and elevate that, not a re-download:
-        # what the user piped in (a fork, a branch, a local copy) is what must
-        # run under Administrator. UTF-8 with BOM: -File reads it correctly on
-        # PS 5.1 whatever the piped content contains.
-        $body = $MyInvocation.MyCommand.Definition
-        if (-not $body) { Write-Host "ERROR: cannot recover the executing script text; save the script to a file and run it with -File." -ForegroundColor Red; return }
+        # Launched via `irm ... | iex` - no file on disk to relaunch, and the
+        # piped text is not recoverable from inside iex ($MyInvocation there
+        # holds the caller's command line, not the script body). Download to a
+        # file and elevate that.
         $scriptPath = Join-Path $env:TEMP 'cpu-parking-disabler.ps1'
-        [IO.File]::WriteAllText($scriptPath, $body, [Text.Encoding]::UTF8)
+        Invoke-RestMethod 'https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1' -OutFile $scriptPath
+        if (-not (Test-Path $scriptPath)) { Write-Host "ERROR: could not download the script; save it to a file and run it with -File." -ForegroundColor Red; return }
     }
     try {
         # -ExecutionPolicy Bypass keeps a downloaded script from being blocked
