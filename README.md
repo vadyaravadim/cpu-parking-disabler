@@ -21,15 +21,7 @@ Zero install. Zero dependencies. Just download and run.
 
 ## Quick Start
 
-**Easiest — download & double-click:**
-
-1. Click **Code ▸ Download ZIP** at the top of this page, then unzip.
-2. Double-click **`Run.bat`**.
-3. Click **Yes** on the UAC prompt.
-
-The script requests admin rights via UAC on its own — no need to open an admin console manually.
-
-**Or from the PowerShell Gallery:**
+**Easiest — from the PowerShell Gallery:**
 
 ```powershell
 Install-Script cpu-parking-disabler
@@ -53,6 +45,10 @@ git clone https://github.com/vadyaravadim/cpu-parking-disabler.git
 cd cpu-parking-disabler
 .\cpu-parking-disabler.ps1
 ```
+
+**Or download the ZIP** (no PowerShell needed): click **Code ▸ Download ZIP** at the top of this page, unzip, then double-click **`Run.bat`**.
+
+Whichever method you use, click **Yes** on the UAC prompt — the script requests admin rights on its own, no need to open an admin console manually.
 
 No parameters, no configuration. Run and done.
 
