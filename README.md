@@ -12,6 +12,7 @@ Zero install. Zero dependencies. Just download and run.
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)](https://www.microsoft.com/windows)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)](https://docs.microsoft.com/en-us/powershell/)
 [![Latest release](https://img.shields.io/github/v/release/vadyaravadim/cpu-parking-disabler)](https://github.com/vadyaravadim/cpu-parking-disabler/releases)
+[![PowerShell Gallery](https://img.shields.io/powershellgallery/v/cpu-parking-disabler?logo=powershell&label=PS%20Gallery)](https://www.powershellgallery.com/packages/cpu-parking-disabler)
 ![GitHub Stars](https://img.shields.io/github/stars/vadyaravadim/cpu-parking-disabler?style=social)
 
 </div>
@@ -27,6 +28,15 @@ Zero install. Zero dependencies. Just download and run.
 3. Click **Yes** on the UAC prompt.
 
 The script requests admin rights via UAC on its own — no need to open an admin console manually.
+
+**Or from the PowerShell Gallery:**
+
+```powershell
+Install-Script cpu-parking-disabler
+cpu-parking-disabler                 # then run it by name (open a NEW PowerShell window first, so the Scripts folder is on PATH)
+```
+
+The script self-elevates. Update later with `Update-Script cpu-parking-disabler`.
 
 **One-liner** instead (in any PowerShell — it self-elevates):
 
