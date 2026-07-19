@@ -75,7 +75,9 @@ if (-not $PSCommandPath) {
         Copy-Item $saved "$saved.bak" -Force
         Write-Host "Existing $saved differs - previous copy kept as $saved.bak" -ForegroundColor Yellow
     }
-    [IO.File]::WriteAllText($saved, $body, [Text.Encoding]::UTF8)
+    # UTF8Encoding($false) = no BOM: a BOM would break a later `irm | iex` of
+    # the saved copy and violates the ASCII/no-BOM invariant the repo enforces.
+    [IO.File]::WriteAllText($saved, $body, [Text.UTF8Encoding]::new($false))
     Write-Host "Script saved to: $saved" -ForegroundColor Cyan
     powershell -NoProfile -ExecutionPolicy Bypass -File $saved
     # The rerun's exit code stays in $LASTEXITCODE for scripted callers.
