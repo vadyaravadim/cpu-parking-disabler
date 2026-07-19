@@ -1,3 +1,35 @@
+<#PSScriptInfo
+
+.VERSION 1.0.0
+
+.GUID 3c68d1e3-ff2b-4cc2-b7c1-6c384c72cd0d
+
+.AUTHOR vadyaravadim
+
+.COMPANYNAME
+
+.COPYRIGHT
+
+.TAGS Windows Windows10 Windows11 Gaming CPU CoreParking PowerPlan Performance Latency Stutter Tweak
+
+.LICENSEURI https://github.com/vadyaravadim/cpu-parking-disabler/blob/main/LICENSE
+
+.PROJECTURI https://github.com/vadyaravadim/cpu-parking-disabler
+
+.ICONURI
+
+.EXTERNALMODULEDEPENDENCIES
+
+.REQUIREDSCRIPTS
+
+.EXTERNALSCRIPTDEPENDENCIES
+
+.RELEASENOTES
+
+.PRIVATEDATA
+
+#>
+
 <#
 .SYNOPSIS
     Disables CPU core parking and sets Energy Performance Preference to maximum performance.
