@@ -15,6 +15,8 @@ Zero install. Zero dependencies. Just download and run.
 [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/cpu-parking-disabler?logo=powershell&label=PS%20Gallery)](https://www.powershellgallery.com/packages/cpu-parking-disabler)
 ![GitHub Stars](https://img.shields.io/github/stars/vadyaravadim/cpu-parking-disabler?style=social)
 
+**[Read the deep dive with measured benchmarks →](https://rigpolice.com/system/articles/disable-cpu-core-parking/)**
+
 </div>
 
 ---
@@ -87,6 +89,18 @@ CPU core parking puts idle cores to sleep. When load spikes, waking cores takes 
 - Stuttering in games despite high FPS
 - Input lag spikes
 - Frame time inconsistency
+
+## Measured Impact
+
+Three states on an i9-14900F (8 P + 16 E cores, Windows 11 24H2): stock, parking forced (24 of 32 threads parked — the state aggressive-parking machines live in), and after this script:
+
+| Metric | Stock | Parking active | After the script |
+|--------|-------|----------------|------------------|
+| 7-Zip rating, 32 threads | 175,111 MIPS | 71,120 MIPS (**−59%**) | 175,695 MIPS |
+| Worst frame (144 Hz sim) | 6.5 ms | **17.3 ms** | 5.4 ms |
+| Frames over the 6.9 ms budget | 0% | 0.14% | 0% |
+
+Parking costs tail latency (micro-stutter), not average speed — and the script removes it even against hard parking caps. Full methodology, screenshots, and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/)**. Reproduce it yourself with [`bench/bench.ps1`](bench/bench.ps1) + `7zr b 3 -mmt32`.
 
 ## Verify: Check If Your CPU Cores Are Parked
 
