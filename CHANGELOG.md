@@ -52,46 +52,82 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ### Fixed
 
-- Non-ASCII characters in the script showed up as mojibake when Windows PowerShell 5.1 ran the file with
-  `-File`. The script is now pure ASCII with no BOM, and a CI check keeps it that way: a BOM would break
-  `irm | iex`, and non-ASCII in a BOM-less file breaks the 5.1 `-File` path.
+- Non-ASCII characters in the script showed up as mojibake when Windows PowerShell 5.1 ran the file
+  with `-File`. The script is now pure ASCII - the em-dashes were replaced - with no BOM, and an
+  `ascii-check` CI workflow keeps it that way: a BOM would break `irm | iex`, and non-ASCII in a
+  BOM-less file breaks the 5.1 `-File` path.
 
 ### Changed
 
-- Elevation under `irm | iex` was reworked to relaunch the text that was actually executing rather than
-  re-fetching `main`, so that a fork or a pinned commit would keep running after the UAC prompt. This did
+- Elevation under `irm | iex` was reworked to relaunch the text that was actually executing rather
+  than re-fetching `main`, so that a fork, a branch, a pinned commit or a local copy would keep
+  running after the UAC prompt: the text you piped in is saved to `%TEMP%` and elevated with
+  `-File`. Until now the elevated window silently ran whatever `main` held at that moment, which
+  could differ from the text you reviewed and ran. It also drops the second network fetch, and with
+  it the download-failure case handled in 1.1.0, since there is nothing left to download. This did
   not hold in practice - see the 1.1.2 fix.
 
 ## [1.1.0] - 2026-07-18
 
 ### Added
 
-- The `irm | iex` one-liner self-elevates. Before this, a piped run from a non-elevated console could only
-  print "open PowerShell as Administrator and run the command again" and stop, because there was no file on
-  disk to relaunch; it now writes itself out and reruns through the UAC prompt.
+- The `irm | iex` one-liner self-elevates, so it now runs from any PowerShell rather than only from
+  an already elevated console. Before this, a piped run from a non-elevated console could only print
+  "open PowerShell as Administrator and run the command again" and stop, because there was no file
+  on disk to relaunch; it now relaunches the same one-liner in an elevated Windows PowerShell window
+  through the UAC prompt.
+
+### Fixed
+
+- Refusing the UAC prompt threw an unhandled exception at you instead of printing a plain message
+  saying elevation was declined.
+- If the script download inside the elevated relaunch failed - no network, GitHub unreachable - the
+  elevated window closed instantly and you never saw why. It now shows the error and waits for
+  Enter.
+
+### Changed
+
+- The README Quick Start now describes the one-liner as working in any PowerShell because it
+  self-elevates.
 
 ## [1.0.1] - 2026-07-18
 
 ### Fixed
 
-- Two runs within the same second silently destroyed the first run's backup. The backup file is named from
-  a whole-second timestamp and `powercfg -export` overwrites without asking, so the `.pow` you would have
-  rolled back to was gone. Colliding names now get a numeric suffix.
+- Two runs within the same second silently destroyed the first run's backup. The backup file is
+  named from a whole-second timestamp and `powercfg -export` overwrites without asking, so the
+  `.pow` you would have rolled back to was gone. Colliding names now get a numeric suffix, the first
+  free of `_1`, `_2` and so on.
+
+### Changed
+
+- The README was reworked for search: keyword headings, 'unpark' terminology throughout, FAQ entries
+  covering Quick CPU and the registry method, and alt text on the images.
+- The Related section now links MSI Mode Utility, Timer Resolution Utility, GameDVR & FSO Disabler
+  and Interrupt Affinity Utility.
 
 ## [1.0.0] - 2026-07-01
 
 ### Added
 
-- First release. Disables CPU core parking (`CPMINCORES` / `CPMINCORES1` = 100) and sets Energy Performance
-  Preference (`PERFEPP` / `PERFEPP1` = 0) on your current power scheme, for both AC and battery.
-- Supports Intel 12th-gen and newer hybrid CPUs, where P-cores and E-cores carry separate settings, as well
-  as non-hybrid CPUs (AMD Ryzen, older Intel) - the P-core-only settings are skipped silently when the CPU
-  does not have them.
-- The four settings are unhidden in the registry first, because a hidden power setting can be ignored by
-  the OS even after `powercfg` sets it.
+- First stable release. One command disables CPU core parking (`CPMINCORES` / `CPMINCORES1` = 100,
+  so the minimum share of unparked cores is 100 percent and every core stays awake) and sets Energy
+  Performance Preference to maximum (`PERFEPP` / `PERFEPP1` = 0) on your current power scheme, for
+  both AC and battery - which is what clears the micro-stutters, input lag and frame-time spikes
+  that parked cores cause.
+- Supports Intel 12th-gen and newer hybrid CPUs, where P-cores and E-cores carry separate settings
+  (the `1`-suffixed Class 1 pair), as well as non-hybrid CPUs (AMD Ryzen, older Intel) - the
+  P-core-only settings are skipped silently when the CPU does not have them.
+- The four settings are unhidden in the registry first, because a hidden power setting can be
+  ignored by the OS even after `powercfg` sets it.
 - Exports your current power scheme to the Desktop before touching anything, and prints the exact
   one-liner that re-imports and reactivates that backup.
-- Self-elevates through UAC, so `Run.bat` or right-click > Run with PowerShell is all that is needed.
+- Self-elevates through UAC, so `Run.bat` or right-click > Run with PowerShell is all that is
+  needed. An `irm ... | iex` one-liner is there as well, though at this version it has to be started
+  from a console that is already running as Administrator.
+- Runs on Windows 10 and Windows 11 (23H2 and 24H2), on Intel 10th-gen and newer - 12th-gen and
+  newer for the hybrid path - and on AMD Ryzen 5000, 7000 and 9000. Nothing to install and no
+  dependencies beyond what Windows already ships.
 
 [Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.2...HEAD
 [1.1.2]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.1...v1.1.2
