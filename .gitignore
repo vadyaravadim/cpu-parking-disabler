@@ -1,5 +1,5 @@
 *.html
-*.pow
+parking_undo_*.json
 bench/bench-*.json
 .vs/
 .vscode/

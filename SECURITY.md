@@ -24,6 +24,8 @@ In scope:
 - The self-elevation path (`irm | iex` saving to `%USERPROFILE%` and re-running
   from there) — e.g. a way to make it execute attacker-controlled content
 - The saved-copy / `.bak` handling — e.g. a path that overwrites an unrelated file
+- The undo file (`parking_undo_*.json`) — e.g. a crafted file that makes `-Undo`
+  write outside the recorded power scheme or settings
 - The release pipeline — checksums, provenance, or the PowerShell Gallery package
   not matching the tagged source
 
@@ -35,7 +37,7 @@ Out of scope:
 - Changes persisting across reboots — documented in the
   [FAQ](README.md#do-the-changes-survive-a-reboot), and reversible per
   [Rollback](README.md#rollback)
-- Running an unmodified `.pow` backup or power scheme into an unwanted state
+- Running `-Undo` against an undo file you edited by hand
 
 ## Verifying a Release
 

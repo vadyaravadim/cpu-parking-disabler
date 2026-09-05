@@ -9,13 +9,49 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-05
+
 ### Added
 
+- `-Status` shows how many cores are parked right now, out of how many, and the four settings' AC / DC
+  values next to their targets. It changes nothing and needs no admin rights, so checking whether the
+  tweak is still in place after a Windows update takes two seconds and no UAC prompt.
+- `-Undo` puts the previous values back. The script writes `parking_undo_<stamp>.json` next to itself
+  before changing anything, and `-Undo` restores those values to the power scheme they came from. No more
+  importing a `.pow` by hand in an admin console, and no duplicate power scheme left behind by
+  `powercfg -import`. Files are per-run snapshots: after several runs, `-Undo` once per run, newest to
+  oldest.
+- The parked-core count is printed before and after applying (`24 of 32 -> 0 of 32`), so the effect is on
+  screen rather than taken on trust.
+- Dual-CCD X3D Ryzens (7900X3D, 7950X3D, 9900X3D, 9950X3D) get a warning and a confirmation prompt
+  before anything changes. AMD's 3D V-Cache Performance Optimizer parks the non-V-Cache CCD during games
+  through core parking on purpose, so unparking every core defeats it and games can run worse, not
+  better. Single-CCD X3D parts (7800X3D, 9800X3D) are unaffected and get no prompt.
 - `bench/bench.ps1` - the frame-pacing benchmark used to measure this tweak's effect, so the numbers in the
   README can be reproduced on your own machine rather than taken on trust.
 
+### Changed
+
+- A run on an already-tweaked machine now says so and writes no undo file. Before, it re-applied silently;
+  with the new undo file that would have snapshotted the tweaked values as "previous", and a later `-Undo`
+  would have restored the tweak instead of the original.
+- The elevated window stays open on an error so the message can be read, instead of closing on an empty
+  screen.
+
+### Removed
+
+- The `.pow` export to the Desktop, replaced by the undo file above. Restoring a `.pow` needs an admin
+  console and a GUID dance, and `powercfg -import` always leaves a duplicate scheme in Power Options. Any
+  `.pow` you already have still works with the manual `powercfg -import` / `-setactive` method.
+
 ### Fixed
 
+- The script printed "Backup saved" even when the `.pow` export had failed (no Desktop folder, a OneDrive
+  redirect, ...) and then went on to change settings with nothing to roll back to. Every `powercfg` call
+  is now checked, and a failed write is reported as an error instead of `[OK]`.
+- On non-English Windows the current values never showed up and hybrid CPUs were treated as non-hybrid,
+  because the script matched the English "Current AC Power Setting Index" label in localized `powercfg`
+  output. Values and the parked-core count are now read in a language-independent way.
 - The copy a piped `irm ... | iex` run saves into your user profile was written with a UTF-8 BOM, which
   then broke running that saved copy through `irm | iex` again - the parser chokes on the leading byte
   order mark. It is now written without one.
@@ -129,7 +165,8 @@ verbatim into the release and fails the release if the tag has no section here.
   newer for the hybrid path - and on AMD Ryzen 5000, 7000 and 9000. Nothing to install and no
   dependencies beyond what Windows already ships.
 
-[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.0.1...v1.1.0
