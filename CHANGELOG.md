@@ -37,6 +37,8 @@ verbatim into the release and fails the release if the tag has no section here.
   would have restored the tweak instead of the original.
 - The elevated window stays open on an error so the message can be read, instead of closing on an empty
   screen.
+- `Run.bat` now waits for a keypress before its window closes, so if the launch itself fails - the
+  script blocked or missing next to it - the reason stays on screen instead of the window vanishing.
 
 ### Removed
 
