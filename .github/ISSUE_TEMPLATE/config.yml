@@ -1,0 +1,9 @@
+# Blank issues stay on: ideas and questions should not have to fit the bug form.
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/vadyaravadim/cpu-parking-disabler/security/advisories/new
+    about: The script runs as Administrator - please report privately, not in a public issue.
+  - name: No FPS change, or worse performance on a dual-CCD X3D Ryzen?
+    url: https://github.com/vadyaravadim/cpu-parking-disabler#faq
+    about: Expected in some setups - the FAQ explains when unparking helps and when it does not.
