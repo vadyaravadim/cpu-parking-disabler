@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 1.0.0
+.VERSION 0.0.0
 
 .GUID 3c68d1e3-ff2b-4cc2-b7c1-6c384c72cd0d
 
@@ -118,7 +118,7 @@ if (-not $PSCommandPath) {
     # holds the caller's command line, not the script body) - download the
     # script.
     try {
-        $body = Invoke-RestMethod 'https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1' -TimeoutSec 30
+        $body = Invoke-RestMethod 'https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest/download/cpu-parking-disabler.ps1' -TimeoutSec 30
     } catch {
         Write-Host "ERROR: could not download the script ($($_.Exception.Message)). Check your internet connection, or save the script to a file and run it from there." -ForegroundColor Red
         return
@@ -229,9 +229,15 @@ $settingDefs = @(
     [pscustomobject]@{ Name = 'PERFEPP1';    Guid = '36687f9e-e3a5-4dbf-b1dc-15eb381c6864'; Target = 0;   Label = 'energy performance preference, P-cores' }
 )
 
+# Read from this file's own PSScriptInfo block - the one place the version
+# lives (release.yml stamps the tag into it). 0.0.0 is the committed
+# placeholder: a clone or ZIP of main, not a release.
+$version = [regex]::Match((Get-Content $PSCommandPath -Raw), '(?m)^\.VERSION\s+(\S+)').Groups[1].Value
+$version = if ($version -eq '0.0.0') { 'dev build' } else { "v$version" }
+
 Write-Host ""
 Write-Host "===================================" -ForegroundColor Cyan
-Write-Host "  CPU PARKING DISABLER" -ForegroundColor Cyan
+Write-Host "  CPU PARKING DISABLER $version" -ForegroundColor Cyan
 Write-Host "===================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -375,5 +381,7 @@ Write-Host "Applied to power scheme '$($scheme.Name)':"
 Write-Host "  - CPU parking: DISABLED (all cores always active)"
 Write-Host "  - EPP: 0 (max performance)"
 Write-Host ""
-Write-Host "Revert any time with: .\cpu-parking-disabler.ps1 -Undo" -ForegroundColor DarkGray
+# Full path and -ExecutionPolicy Bypass: this window usually sits in System32
+# (elevated relaunch), and a bare .\script.ps1 is blocked by the default policy.
+Write-Host "Revert any time with: powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Undo" -ForegroundColor DarkGray
 Wait-IfElevatedWindow

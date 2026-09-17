@@ -50,3 +50,11 @@ Get-FileHash .\cpu-parking-disabler.ps1 -Algorithm SHA256
 
 Compare the hash against the one in the corresponding
 [release](https://github.com/vadyaravadim/cpu-parking-disabler/releases).
+
+The hash only proves the file matches the release page. The provenance proves the
+file was built by this repository's `release.yml` from the tagged commit - check it
+with the [GitHub CLI](https://cli.github.com/):
+
+```powershell
+gh attestation verify .\cpu-parking-disabler.ps1 -R vadyaravadim/cpu-parking-disabler
+```

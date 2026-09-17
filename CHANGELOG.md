@@ -9,6 +9,32 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ## [Unreleased]
 
+### Added
+
+- The banner shows the script version (`CPU PARKING DISABLER v1.2.1`), in every mode including `-Status`,
+  so you can tell at a glance whether the copy you are running is the current release - and a bug report
+  that includes the output says which version it is about. A copy cloned or zipped from `main` rather
+  than taken from a release says `dev build`.
+
+### Changed
+
+- The `irm ... | iex` one-liner, and the copy it saves into your user profile, now download the latest
+  tagged release instead of whatever sits on `main`. Until now the one-liner ran - as Administrator - a
+  file that had not been through the release checks and had no checksum or provenance behind it. It is
+  now byte-for-byte the release asset, so `SHA256SUMS.txt` and `gh attestation verify` cover it too. The
+  old command keeps working; swap the URL for the one in the README when convenient.
+- A release is no longer published unless `lint` and `ascii-check` pass on the tagged commit.
+
+### Fixed
+
+- `Run.bat -Status` and `Run.bat -Undo` now do what they say. `Run.bat` dropped everything typed after its
+  name, so `Run.bat -Undo` quietly ran the normal apply instead of undoing anything.
+- The "Revert any time with" line at the end of a run now prints a command that works when pasted: the
+  full path to the script plus `-ExecutionPolicy Bypass`. The old `.\cpu-parking-disabler.ps1 -Undo` failed
+  twice over - the elevated window sits in `System32`, not in the script's folder, and Windows blocks
+  direct `.ps1` runs by default. The README had the same command; it now lists the working one for each
+  install method.
+
 ## [1.2.0] - 2026-09-05
 
 ### Added

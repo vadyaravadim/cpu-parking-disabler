@@ -35,7 +35,7 @@ The script self-elevates. Update later with `Update-Script cpu-parking-disabler`
 **One-liner** instead (in any PowerShell — it self-elevates):
 
 ```powershell
-irm https://raw.githubusercontent.com/vadyaravadim/cpu-parking-disabler/main/cpu-parking-disabler.ps1 | iex
+irm https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest/download/cpu-parking-disabler.ps1 | iex
 ```
 
 The script saves itself to `%USERPROFILE%\cpu-parking-disabler.ps1` and reruns from there; an existing copy at that path that differs is kept as `.bak`. The undo file is written next to it.
@@ -45,7 +45,7 @@ The script saves itself to `%USERPROFILE%\cpu-parking-disabler.ps1` and reruns f
 ```powershell
 git clone https://github.com/vadyaravadim/cpu-parking-disabler.git
 cd cpu-parking-disabler
-.\cpu-parking-disabler.ps1
+.\Run.bat
 ```
 
 **Or download the ZIP** (no PowerShell needed): click **Code ▸ Download ZIP** at the top of this page, unzip, then double-click **`Run.bat`**.
@@ -58,6 +58,16 @@ No parameters, no configuration. Run and done. Two optional switches:
 |--------|--------------|
 | `-Status` | Show how many cores are parked right now and the four settings behind it. Changes nothing, needs no admin rights. |
 | `-Undo` | Put the values back the way they were before the last run. |
+
+How to pass a switch depends on how you got the script:
+
+| Installed via | Command |
+|---------------|---------|
+| PowerShell Gallery | `cpu-parking-disabler -Status` |
+| ZIP or clone | `.\Run.bat -Status` from the script's folder |
+| One-liner | `powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\cpu-parking-disabler.ps1" -Status` |
+
+Calling `.\cpu-parking-disabler.ps1` directly only works if your execution policy allows scripts — Windows blocks them by default, which is what `Run.bat` and `-ExecutionPolicy Bypass` get around.
 
 ## What It Does
 
@@ -134,18 +144,18 @@ Parking costs tail latency (micro-stutter), not average speed — and the script
 ## Verify: Check If Your CPU Cores Are Parked
 
 ```powershell
-.\cpu-parking-disabler.ps1 -Status
+.\Run.bat -Status
 ```
 
-Prints the parked-core count and the four settings without changing anything (no admin prompt). Or open **Resource Monitor** (`resmon`) → **CPU** tab: parked cores are labeled **Parked** next to the core graph; after running the script every core should say **Running**.
+([Other install methods](#quick-start) pass the switch differently.) Prints the parked-core count and the four settings without changing anything (no admin prompt). Or open **Resource Monitor** (`resmon`) → **CPU** tab: parked cores are labeled **Parked** next to the core graph; after running the script every core should say **Running**.
 
 ## Rollback
 
 ```powershell
-.\cpu-parking-disabler.ps1 -Undo
+.\Run.bat -Undo
 ```
 
-Restores the values recorded in the newest `parking_undo_*.json` next to the script, to the power scheme they came from, and renames the file to `.applied.json`. Undo files are per-run snapshots: after several runs, run `-Undo` once per run, newest to oldest — only the oldest holds the original state.
+([Other install methods](#quick-start) pass the switch differently.) Restores the values recorded in the newest `parking_undo_*.json` next to the script, to the power scheme they came from, and renames the file to `.applied.json`. Undo files are per-run snapshots: after several runs, run `-Undo` once per run, newest to oldest — only the oldest holds the original state.
 
 **Full reset to Windows defaults** — simplest, but resets *all* power schemes:
 ```powershell
