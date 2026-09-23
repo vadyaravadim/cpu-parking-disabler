@@ -38,7 +38,7 @@ The script self-elevates. Update later with `Update-Script cpu-parking-disabler`
 irm https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest/download/cpu-parking-disabler.ps1 | iex
 ```
 
-The script saves itself to `%USERPROFILE%\cpu-parking-disabler.ps1` and reruns from there; an existing copy at that path that differs is kept as `.bak`. The undo file is written next to it.
+The script saves itself to `%USERPROFILE%\cpu-parking-disabler.ps1` and reruns from there; an existing copy at that path that differs is kept as `.bak`. The undo file is written next to it. The `irm | iex` pipe itself takes no switches - run the saved copy instead, see the switch table below.
 
 **Or clone:**
 
