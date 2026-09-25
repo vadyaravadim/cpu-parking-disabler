@@ -17,6 +17,8 @@ Zero install. Zero dependencies. Shows the parked-core count before and after. B
 
 **[Read the deep dive with measured benchmarks →](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**
 
+**Part of the [RigPolice Latency Toolbox](https://rigpolice.com/system/latency-toolbox/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler) — six open-source Windows latency scripts, with what we measured and what we have not yet**
+
 </div>
 
 ---
