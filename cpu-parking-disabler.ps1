@@ -384,4 +384,6 @@ Write-Host ""
 # Full path and -ExecutionPolicy Bypass: this window usually sits in System32
 # (elevated relaunch), and a bare .\script.ps1 is blocked by the default policy.
 Write-Host "Revert any time with: powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Undo" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "Useful? A star on GitHub helps others find it: https://github.com/vadyaravadim/cpu-parking-disabler"
 Wait-IfElevatedWindow
