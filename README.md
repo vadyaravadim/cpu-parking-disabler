@@ -13,11 +13,13 @@ Zero install. Zero dependencies. Shows the parked-core count before and after. B
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)](https://docs.microsoft.com/en-us/powershell/)
 [![Latest release](https://img.shields.io/github/v/release/vadyaravadim/cpu-parking-disabler)](https://github.com/vadyaravadim/cpu-parking-disabler/releases)
 [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/cpu-parking-disabler?logo=powershell&label=PS%20Gallery)](https://www.powershellgallery.com/packages/cpu-parking-disabler)
-![GitHub Stars](https://img.shields.io/github/stars/vadyaravadim/cpu-parking-disabler?style=social)
+[![GitHub Stars](https://img.shields.io/github/stars/vadyaravadim/cpu-parking-disabler?style=social)](https://github.com/vadyaravadim/cpu-parking-disabler/stargazers)
 
 **[Read the deep dive with measured benchmarks →](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**
 
 **Part of the [RigPolice Latency Toolbox](https://rigpolice.com/system/latency-toolbox/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler) — six open-source Windows latency scripts, with what we measured and what we have not yet**
+
+If it fixes your stutters, a ⭐ helps others find it.
 
 </div>
 
