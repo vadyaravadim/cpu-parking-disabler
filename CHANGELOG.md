@@ -9,6 +9,8 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-03
+
 ### Added
 
 - On a laptop the run now says that the battery profile was changed too, so it will drain faster and run
@@ -230,7 +232,8 @@ verbatim into the release and fails the release if the tag has no section here.
   newer for the hybrid path - and on AMD Ryzen 5000, 7000 and 9000. Nothing to install and no
   dependencies beyond what Windows already ships.
 
-[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.1...v1.1.2
