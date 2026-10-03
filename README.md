@@ -81,7 +81,7 @@ Calling `.\cpu-parking-disabler.ps1` directly only works if your execution polic
 4. **Sets EPP to max performance** — CPU favors performance over power saving
 5. **Shows the parked-core count again** — the effect is on screen, not taken on trust
 
-That's it. No other settings are touched. Your current power scheme is modified in-place, for both AC and battery. A second run on an already-tweaked machine changes nothing and writes no undo file.
+That's it. No other settings are touched. Your current power scheme is modified in-place, for both AC and battery; on a laptop the run says so at the end. A second run on an already-tweaked machine changes nothing and writes no undo file.
 
 ```
 CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads, hybrid P+E)
@@ -178,7 +178,7 @@ powercfg -restoredefaultschemes
 |---|-----------|
 | **Intel** | 10th gen+ (12th+ for hybrid P/E-core support) |
 | **AMD** | Ryzen 5000 / 7000 / 9000 — **not recommended on dual-CCD X3D parts**, see below |
-| **Windows** | 10, 11 (23H2, 24H2), any display language |
+| **Windows** | 10, 11, any display language |
 
 > **Ryzen 9 7900X3D / 7950X3D / 9900X3D / 9950X3D:** AMD's 3D V-Cache Performance Optimizer parks the non-V-Cache CCD during games *through core parking*, on purpose, so the game stays on the cache CCD. Unparking every core defeats that and games can run worse. The script detects these CPUs and asks before continuing. Single-CCD X3D parts (7800X3D, 9800X3D) are unaffected.
 

@@ -380,6 +380,11 @@ Write-Host ""
 Write-Host "Applied to power scheme '$($scheme.Name)':"
 Write-Host "  - CPU parking: DISABLED (all cores always active)"
 Write-Host "  - EPP: 0 (max performance)"
+# DC is set too, so on a laptop the battery profile changes. A note, not a
+# prompt or a skip: an always-plugged-in gaming laptop may want exactly this.
+if (Get-CimInstance Win32_Battery) {
+    Write-Host "  - Battery profile too: this laptop will drain faster and run warmer unplugged" -ForegroundColor Yellow
+}
 Write-Host ""
 # Full path and -ExecutionPolicy Bypass: this window usually sits in System32
 # (elevated relaunch), and a bare .\script.ps1 is blocked by the default policy.

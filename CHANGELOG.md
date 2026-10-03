@@ -9,11 +9,26 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ## [Unreleased]
 
+### Added
+
+- On a laptop the run now says that the battery profile was changed too, so it will drain faster and run
+  warmer unplugged. The script always set both the plugged-in and the battery values, but only the README
+  said so. Nothing else changes: on an always-plugged-in gaming laptop that may be exactly what you want,
+  and `-Undo` reverts both.
+
 ### Changed
 
 - A successful run now ends with one line linking to this repo and asking for a star, so people who got
   the one-liner from an article or a chatbot know where the tool lives. It is printed only when the run
   changed something: not on `-Status`, `-Undo` or a repeat run.
+
+### Fixed
+
+- The README did not say where `-Status` and `-Undo` go if you installed with the `irm | iex` one-liner.
+  The pipe itself takes no switches; the README now says to run the copy saved in your user profile and
+  points at the table with the exact command.
+- The README's compatibility table listed only Windows 11 23H2 and 24H2. The script reads and writes the
+  same power settings on any Windows 10 or 11 build, 25H2 included.
 
 ## [1.2.1] - 2026-09-18
 
