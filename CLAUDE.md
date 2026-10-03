@@ -13,10 +13,12 @@ value - `Show-PowerSetting` (`Attributes = 0`) first is what makes the write tak
 repeats it because a major Windows update can hide the settings again. Reads go through `/qh`, not `/q`, so
 `-Status` sees hidden settings without touching the registry.
 
-**Class 1 settings are hybrid-only and are meant to fail silently.** `CPMINCORES1` / `PERFEPP1` exist only
-on Intel 12th-gen and newer; on AMD and older Intel `powercfg` errors and `Get-PowerSettingValue` returns
-`$null`, which drops the row everywhere. Do not add a "setting not found" warning - it fires on every
-non-hybrid machine.
+**A Class 1 setting existing says nothing about the CPU.** Windows ships the power-efficiency-class
+settings with the OS, not per CPU: this 2-class i9-14900F also lists the Class 2 ones (`PERFEPP2`, ...),
+written by an OS update. So `CPMINCORES1` / `PERFEPP1` show up on AMD and older Intel too, where Windows
+ignores them and writing them is harmless. 1.2.0 and 1.2.1 printed `hybrid P+E` from their presence -
+never infer hybrid that way. A setting `powercfg` does not know still makes `Get-PowerSettingValue`
+return `$null` and drops the row; keep that silent, no "setting not found" warning.
 
 ## Invariants the undo file depends on
 

@@ -18,7 +18,7 @@ body:
       label: Output of -Status
       description: |
         Read-only, no admin prompt. It shows the script version, the CPU, the power scheme, the parked-core count and the four values, which answers most follow-up questions up front. If `-Status` itself fails, paste the error.
-        - PowerShell Gallery: `cpu-parking-disabler -Status`
+        - PowerShell Gallery (PowerShell 7): `cpu-parking-disabler -Status`
         - One-liner: `powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\cpu-parking-disabler.ps1" -Status`
         - ZIP / clone, from the script's folder: `powershell -ExecutionPolicy Bypass -File .\cpu-parking-disabler.ps1 -Status`
       render: text

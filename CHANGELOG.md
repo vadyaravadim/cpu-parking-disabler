@@ -24,6 +24,20 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ### Fixed
 
+- The README's first install method, the PowerShell Gallery, failed in the Windows PowerShell 5.1 that
+  comes with Windows: `Install-Script` stopped with "Administrator rights are required", and the installed
+  script was then blocked by the default execution policy. The one-liner, which works in any PowerShell,
+  is now listed first, and the Gallery route is marked as PowerShell 7.
+- On AMD Ryzen and pre-12th-gen Intel the CPU line could read `hybrid P+E`, and two rows were labelled as
+  P-core settings. The script took the mere presence of the P-core settings as proof of a hybrid CPU, but
+  Windows ships them on every CPU. The CPU line no longer guesses, and those rows now say they are for
+  hybrid CPUs. What gets written is unchanged: without P-cores, Windows ignores those two values.
+- After the `irm | iex` one-liner, the PowerShell window you ran it from was left treating every error as
+  fatal, so a later command or another script in that window could stop on an error it would normally
+  shrug off. The one-liner no longer changes that setting in your window.
+- Run from a folder with `[` or `]` in its path, the script stopped at once with "A parameter cannot be
+  found that matches parameter name 'Raw'" - `-Status`, the tweak and `-Undo` alike. It now runs, and
+  writes and finds its undo files, from any folder.
 - The README did not say where `-Status` and `-Undo` go if you installed with the `irm | iex` one-liner.
   The pipe itself takes no switches; the README now says to run the copy saved in your user profile and
   points at the table with the exact command.

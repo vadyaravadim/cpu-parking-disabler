@@ -42,8 +42,8 @@
     count again so the effect is visible on screen.
 
     Supports Intel 12th gen+ hybrid CPUs (separate P-core/E-core settings) and
-    non-hybrid CPUs (AMD Ryzen, older Intel), where the Class 1 (P-core)
-    settings do not exist and are skipped. Dual-CCD X3D Ryzens (7900X3D,
+    non-hybrid CPUs (AMD Ryzen, older Intel), where Windows ignores the Class 1
+    (P-core) settings. Dual-CCD X3D Ryzens (7900X3D,
     7950X3D, 9900X3D, 9950X3D) get a warning first: AMD parks the non-V-Cache
     CCD during games THROUGH core parking, and this tweak defeats that.
 
@@ -82,8 +82,6 @@ param(
     [switch]$Elevated   # internal: set by the self-elevation relaunch
 )
 
-$ErrorActionPreference = 'Stop'
-
 # Keep the self-elevated window open so the user can read the output.
 function Wait-IfElevatedWindow {
     if ($Elevated) { Read-Host "Press Enter to close" | Out-Null }
@@ -118,14 +116,14 @@ if (-not $PSCommandPath) {
     # holds the caller's command line, not the script body) - download the
     # script.
     try {
-        $body = Invoke-RestMethod 'https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest/download/cpu-parking-disabler.ps1' -TimeoutSec 30
+        $body = Invoke-RestMethod 'https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest/download/cpu-parking-disabler.ps1' -TimeoutSec 30 -ErrorAction Stop
     } catch {
         Write-Host "ERROR: could not download the script ($($_.Exception.Message)). Check your internet connection, or save the script to a file and run it from there." -ForegroundColor Red
         return
     }
     $saved = Join-Path $env:USERPROFILE 'cpu-parking-disabler.ps1'
     if ((Test-Path $saved) -and ([IO.File]::ReadAllText($saved) -cne $body)) {
-        Copy-Item $saved "$saved.bak" -Force
+        Copy-Item $saved "$saved.bak" -Force -ErrorAction Stop
         Write-Host "Existing $saved differs - previous copy kept as $saved.bak" -ForegroundColor Yellow
     }
     # UTF8Encoding($false) = no BOM: a BOM would break a later `irm | iex` of
@@ -139,6 +137,10 @@ if (-not $PSCommandPath) {
     # The rerun's exit code stays in $LASTEXITCODE for scripted callers.
     return
 }
+
+# Only now: under `irm | iex` the block above runs in the caller's own session,
+# where Stop would stay behind in their console after the script is done.
+$ErrorActionPreference = 'Stop'
 
 # ---- Everything below -Status writes power settings: Administrator required ----
 $principal = New-Object Security.Principal.WindowsPrincipal(
@@ -169,7 +171,7 @@ function Invoke-Powercfg([string[]]$ArgumentList) {
     [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Text = (@($out | ForEach-Object { "$_" }) -join "`n") }
 }
 
-# $null when the setting does not exist on this CPU (Class 1 on non-hybrid).
+# $null when powercfg does not know the setting.
 # /qh includes hidden settings, so this works before the registry unhide too.
 # Labels are localized on non-English Windows, so they are not matched: the
 # last two hex values of the block are AC then DC on every locale.
@@ -221,18 +223,20 @@ function Get-ActiveScheme {
     }
 }
 
-# Rows are skipped when the setting is absent (Class 1 on non-hybrid CPUs).
+# Rows are skipped when powercfg does not know the setting. Class 1 being
+# there says nothing about the CPU: Windows ships the efficiency-class
+# settings on every CPU and ignores them where there is no such class.
 $settingDefs = @(
     [pscustomobject]@{ Name = 'CPMINCORES';  Guid = '0cc5b647-c1df-4637-891a-dec35c318583'; Target = 100; Label = 'core parking min cores, E-cores / all cores' }
-    [pscustomobject]@{ Name = 'CPMINCORES1'; Guid = '0cc5b647-c1df-4637-891a-dec35c318584'; Target = 100; Label = 'core parking min cores, P-cores' }
+    [pscustomobject]@{ Name = 'CPMINCORES1'; Guid = '0cc5b647-c1df-4637-891a-dec35c318584'; Target = 100; Label = 'core parking min cores, P-cores on hybrid CPUs' }
     [pscustomobject]@{ Name = 'PERFEPP';     Guid = '36687f9e-e3a5-4dbf-b1dc-15eb381c6863'; Target = 0;   Label = 'energy performance preference, E-cores / all cores' }
-    [pscustomobject]@{ Name = 'PERFEPP1';    Guid = '36687f9e-e3a5-4dbf-b1dc-15eb381c6864'; Target = 0;   Label = 'energy performance preference, P-cores' }
+    [pscustomobject]@{ Name = 'PERFEPP1';    Guid = '36687f9e-e3a5-4dbf-b1dc-15eb381c6864'; Target = 0;   Label = 'energy performance preference, P-cores on hybrid CPUs' }
 )
 
 # Read from this file's own PSScriptInfo block - the one place the version
 # lives (release.yml stamps the tag into it). 0.0.0 is the committed
 # placeholder: a clone or ZIP of main, not a release.
-$version = [regex]::Match((Get-Content $PSCommandPath -Raw), '(?m)^\.VERSION\s+(\S+)').Groups[1].Value
+$version = [regex]::Match((Get-Content -LiteralPath $PSCommandPath -Raw), '(?m)^\.VERSION\s+(\S+)').Groups[1].Value
 $version = if ($version -eq '0.0.0') { 'dev build' } else { "v$version" }
 
 Write-Host ""
@@ -244,14 +248,14 @@ Write-Host ""
 # ---- Undo mode ----
 if ($Undo) {
     # Sort by the name stamp - LastWriteTime survives renames and can mislead.
-    $undoFile = Get-ChildItem -Path $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
+    $undoFile = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -notmatch '\.applied\.json$' } |
         Sort-Object Name | Select-Object -Last 1
     if (-not $undoFile) {
         Write-Host "No parking_undo_*.json found next to the script - nothing to undo." -ForegroundColor Yellow
         Wait-IfElevatedWindow; return
     }
-    $snap = Get-Content $undoFile.FullName -Raw | ConvertFrom-Json
+    $snap = Get-Content -LiteralPath $undoFile.FullName -Raw | ConvertFrom-Json
     Write-Host "Reverting: $($undoFile.Name)" -ForegroundColor Cyan
     Write-Host "Power scheme  : $($snap.SchemeName) ($($snap.Scheme))"
     # Written to the scheme that was changed, not whatever is active now - the
@@ -265,11 +269,11 @@ if ($Undo) {
     # Re-reads the active scheme so the restored values take effect right away.
     $r = Invoke-Powercfg @('/setactive', 'SCHEME_CURRENT')
     if (-not $r.Ok) { throw "powercfg /setactive failed: $($r.Text)" }
-    Rename-Item $undoFile.FullName ($undoFile.FullName -replace '\.json$', '.applied.json')
+    Rename-Item -LiteralPath $undoFile.FullName ($undoFile.FullName -replace '\.json$', '.applied.json')
     if ((Get-ActiveScheme).Guid -ne $snap.Scheme) {
         Write-Host "That scheme is not the active one - the restored values take effect when you switch back to it." -ForegroundColor Yellow
     }
-    $remaining = @(Get-ChildItem -Path $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
+    $remaining = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -notmatch '\.applied\.json$' })
     if ($remaining.Count) {
         Write-Host "$($remaining.Count) older undo file(s) remain - run -Undo again to revert earlier runs." -ForegroundColor Yellow
@@ -293,14 +297,13 @@ $settings = @(foreach ($d in $settingDefs) {
             Add-Member NoteProperty Ok (($v.AC -eq $d.Target) -and ($v.DC -eq $d.Target)) -PassThru
     }
 })
-$hybrid = [bool]($settings | Where-Object Name -eq 'CPMINCORES1')
 # Dual-CCD X3D parts: AMD's 3D V-Cache Performance Optimizer parks the
 # non-V-Cache CCD during games THROUGH core parking. Single-CCD X3D parts
 # (7800X3D, 9800X3D) have nothing to park and are not affected.
 $dualCcdX3D = ($cpu.Name -match 'X3D') -and ($cpu.NumberOfCores -ge 12)
 
 $parkedColor = if ($null -eq $parkedBefore) { 'Yellow' } elseif ($parkedBefore.Parked) { 'Red' } else { 'Green' }
-Write-Host ("CPU           : {0}  ({1} cores / {2} threads{3})" -f $cpu.Name.Trim(), $cpu.NumberOfCores, $cpu.NumberOfLogicalProcessors, $(if ($hybrid) { ', hybrid P+E' } else { '' }))
+Write-Host ("CPU           : {0}  ({1} cores / {2} threads)" -f $cpu.Name.Trim(), $cpu.NumberOfCores, $cpu.NumberOfLogicalProcessors)
 Write-Host "Power scheme  : $($scheme.Name)"
 Write-Host "Parked cores  : " -NoNewline
 Write-Host (Format-ParkedCount $parkedBefore) -ForegroundColor $parkedColor
@@ -342,14 +345,14 @@ if (-not ($settings | Where-Object { -not $_.Ok })) {
 $base = Get-Date -Format 'yyyyMMdd_HHmmss'
 $stamp = $base
 $n = 1
-while (Test-Path (Join-Path $PSScriptRoot "parking_undo_$stamp.json")) { $stamp = '{0}_{1}' -f $base, $n++ }
+while (Test-Path -LiteralPath (Join-Path $PSScriptRoot "parking_undo_$stamp.json")) { $stamp = '{0}_{1}' -f $base, $n++ }
 $undoPath = Join-Path $PSScriptRoot "parking_undo_$stamp.json"
 $snapshot = [ordered]@{
     Scheme     = $scheme.Guid
     SchemeName = $scheme.Name
     Values     = @(foreach ($s in $settings) { [ordered]@{ Setting = $s.Name; AC = $s.AC; DC = $s.DC } })
 }
-ConvertTo-Json $snapshot -Depth 4 | Set-Content -Path $undoPath -Encoding UTF8
+ConvertTo-Json $snapshot -Depth 4 | Set-Content -LiteralPath $undoPath -Encoding UTF8
 Write-Host "Undo file saved: $undoPath (revert with -Undo)" -ForegroundColor Cyan
 Write-Host ""
 

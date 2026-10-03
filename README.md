@@ -27,22 +27,22 @@ If it fixes your stutters, a ⭐ helps others find it.
 
 ## Quick Start
 
-**Easiest — from the PowerShell Gallery:**
-
-```powershell
-Install-Script cpu-parking-disabler
-cpu-parking-disabler                 # then run it by name (open a NEW PowerShell window first, so the Scripts folder is on PATH)
-```
-
-The script self-elevates. Update later with `Update-Script cpu-parking-disabler`.
-
-**One-liner** instead (in any PowerShell — it self-elevates):
+**Easiest — one line, in any PowerShell** (it self-elevates):
 
 ```powershell
 irm https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest/download/cpu-parking-disabler.ps1 | iex
 ```
 
 The script saves itself to `%USERPROFILE%\cpu-parking-disabler.ps1` and reruns from there; an existing copy at that path that differs is kept as `.bak`. The undo file is written next to it. The `irm | iex` pipe itself takes no switches - run the saved copy instead, see the switch table below.
+
+**From the PowerShell Gallery**, in PowerShell 7 (`pwsh`):
+
+```powershell
+Install-Script cpu-parking-disabler
+cpu-parking-disabler                 # then run it by name (open a NEW PowerShell window first, so the Scripts folder is on PATH)
+```
+
+The script self-elevates. Update later with `Update-Script cpu-parking-disabler`. Not in the Windows PowerShell 5.1 that comes with Windows: there `Install-Script` wants an admin console and the default execution policy blocks the installed script — use the one-liner instead.
 
 **Or clone:**
 
@@ -67,7 +67,7 @@ How to pass a switch depends on how you got the script:
 
 | Installed via | Command |
 |---------------|---------|
-| PowerShell Gallery | `cpu-parking-disabler -Status` |
+| PowerShell Gallery (PowerShell 7) | `cpu-parking-disabler -Status` |
 | ZIP or clone | `.\Run.bat -Status` from the script's folder |
 | One-liner | `powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\cpu-parking-disabler.ps1" -Status` |
 
@@ -84,15 +84,15 @@ Calling `.\cpu-parking-disabler.ps1` directly only works if your execution polic
 That's it. No other settings are touched. Your current power scheme is modified in-place, for both AC and battery; on a laptop the run says so at the end. A second run on an already-tweaked machine changes nothing and writes no undo file.
 
 ```
-CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads, hybrid P+E)
+CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads)
 Power scheme  : High performance
 Parked cores  : 24 of 32
 
   Setting        AC   DC Target
   CPMINCORES     25   25    100  -> (core parking min cores, E-cores / all cores)
-  CPMINCORES1    25   25    100  -> (core parking min cores, P-cores)
+  CPMINCORES1    25   25    100  -> (core parking min cores, P-cores on hybrid CPUs)
   PERFEPP        50   50      0  -> (energy performance preference, E-cores / all cores)
-  PERFEPP1       50   50      0  -> (energy performance preference, P-cores)
+  PERFEPP1       50   50      0  -> (energy performance preference, P-cores on hybrid CPUs)
 
 Undo file saved: C:\Users\you\cpu-parking-disabler\parking_undo_20260905_032754.json (revert with -Undo)
 
@@ -122,7 +122,7 @@ Parked cores  : 24 of 32 -> 0 of 32
 | `PERFEPP` | Energy Performance Preference (E-cores / all cores) | 50 | **0** |
 | `PERFEPP1` | Energy Performance Preference (P-cores, hybrid CPUs) | 50 | **0** |
 
-> `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only exist on Intel 12th gen+ hybrid CPUs. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless.
+> `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only matter on hybrid CPUs (Intel 12th gen+); on other CPUs Windows ignores them. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless.
 
 ## The Problem: Why Core Parking Causes Stutters
 
