@@ -2,7 +2,7 @@
 
 # CPU Parking Disabler
 
-**Kill micro-stutters. Unpark every core. One command.**
+**Check whether Windows parks your cores. Unpark every core with one command.**
 
 Disables CPU core parking (a.k.a. **unparking your CPU cores**) and sets Energy Performance Preference to maximum on Windows 10/11.
 Zero install. Zero dependencies. Shows the parked-core count before and after. Built-in undo.
@@ -19,7 +19,7 @@ Zero install. Zero dependencies. Shows the parked-core count before and after. B
 
 **Part of the [RigPolice Latency Toolbox](https://rigpolice.com/system/latency-toolbox/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler) — six open-source Windows latency scripts, with what we measured and what we have not yet**
 
-If it fixes your stutters, a ⭐ helps others find it.
+If it works for you, a ⭐ helps others find it.
 
 </div>
 
@@ -77,7 +77,7 @@ Calling `.\cpu-parking-disabler.ps1` directly only works if your execution polic
 
 1. **Shows the current state** — parked cores out of total, and each setting's AC / DC value next to its target
 2. **Writes an undo file** (`parking_undo_<stamp>.json`, next to the script) with the previous values, before anything changes
-3. **Disables CPU core parking** (unparks all cores) — all cores stay active, no wake-up latency
+3. **Disables CPU core parking** (unparks all cores) — at 100% minimum unparked cores Windows switches the parking algorithm off, so every core stays available to run threads
 4. **Sets EPP to max performance** — CPU favors performance over power saving
 5. **Shows the parked-core count again** — the effect is on screen, not taken on trust
 
@@ -124,26 +124,21 @@ Parked cores  : 24 of 32 -> 0 of 32
 
 > `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only matter on hybrid CPUs (Intel 12th gen+); on other CPUs Windows ignores them. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless.
 
-## The Problem: Why Core Parking Causes Stutters
+## The Problem: Parked Cores and Bursty Load
 
-CPU core parking puts idle cores to sleep. When load spikes, waking cores takes **1–15 ms** — causing micro-stutters, frame drops, and input lag. This script keeps all cores active so they respond instantly.
-
-**Symptoms this fixes:**
-- Stuttering in games despite high FPS
-- Input lag spikes
-- Frame time inconsistency
+Windows parks cores to save power: a parked core generally gets no threads, and the cores still awake carry the load. When load rises, Windows unparks more of them, but no sooner than a policy-set number of performance check intervals (`CPIncreaseTime`), so a sudden burst lands on fewer cores first. Whether that costs you frames depends on whether your PC parks at all: on our i9-14900F desktop, stock Windows 11 never parked a core. Check yours with [`-Status`](#verify-check-if-your-cpu-cores-are-parked) before you change anything.
 
 ## Measured Impact
 
-Three states on an i9-14900F (8 P + 16 E cores, Windows 11 24H2): stock, parking forced (24 of 32 threads parked — the state aggressive-parking machines live in), and after this script:
+Three states on an i9-14900F (8 P + 16 E cores, Windows 11 24H2), one run each: stock, parking forced by hand (24 of 32 threads held parked for the whole run, which stock Windows does not do), and after this script:
 
-| Metric | Stock | Parking active | After the script |
+| Metric | Stock | Parking forced | After the script |
 |--------|-------|----------------|------------------|
-| 7-Zip rating, 32 threads | 175,111 MIPS | 71,120 MIPS (**−59%**) | 175,695 MIPS |
-| Worst frame (144 Hz sim) | 6.5 ms | **17.3 ms** | 5.4 ms |
+| 7-Zip rating, 32 threads | 175,111 MIPS | 71,120 MIPS (−59%) | 175,695 MIPS |
+| Worst frame (144 Hz sim) | 6.5 ms | 17.3 ms | 5.4 ms |
 | Frames over the 6.9 ms budget | 0% | 0.14% | 0% |
 
-Parking costs tail latency (micro-stutter), not average speed — and the script removes it even against hard parking caps. Full methodology, screenshots, and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it yourself with [`bench/bench.ps1`](bench/bench.ps1) + `7zr b 3 -mmt32`.
+With parking held, multithreaded throughput fell and the frame tail got worse, the spikes people call micro-stutter. The script cleared both even against the hard caps, because its 100% minimum overrides them. One run per state, so read the forced column as a ceiling, not a typical cost. Full methodology, screenshots, and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it yourself with [`bench/bench.ps1`](bench/bench.ps1) + `7zr b 3 -mmt32`.
 
 ## Verify: Check If Your CPU Cores Are Parked
 
@@ -168,8 +163,8 @@ powercfg -restoredefaultschemes
 
 ## Side Effects
 
-- **Higher idle power** (+10–30 W) — not recommended on battery
-- **Higher temps** (+5–10 °C) — monitor with [HWiNFO64](https://www.hwinfo.com/), keep under 85 °C
+- **Higher idle power** — not recommended on battery
+- **Higher temps** — monitor with [HWiNFO64](https://www.hwinfo.com/), keep under 85 °C
 - **More fan noise**
 
 ## Compatibility
@@ -185,13 +180,13 @@ powercfg -restoredefaultschemes
 ## FAQ
 
 ### What is CPU core parking?
-A Windows power-management feature that puts idle CPU cores into a low-power **parked** state. Waking a parked core takes ~1–15 ms, which can cause micro-stutters, frame-time spikes, and input lag under bursty load.
+A Windows power-management feature: the scheduler stops placing threads on some cores (**parked**), and they drop into low power states while the awake cores carry the load. Windows unparks more cores as load rises, after a policy-set number of performance check intervals (`CPIncreaseTime`).
 
 ### What does "unpark CPU cores" mean?
 Unparking means forcing Windows to keep every core active instead of parking idle ones. This script **unparks all CPU cores** by setting Core Parking Min Cores to 100%.
 
 ### Does disabling core parking increase FPS?
-It mainly improves **1% lows, frame-time consistency, and input latency** — not average FPS. If your stutter comes from core wake-up latency, unparking helps; if your CPU never parks under load, you won't notice a difference.
+Not on our desktop: stock Windows 11 never parked a core on our i9-14900F, so there was nothing to change. With parking forced by hand, the frame tail got worse and the script cleared it (see [Measured Impact](#measured-impact)). We have not measured FPS or input lag in a real game. If `-Status` never shows a parked core, you won't notice a difference.
 
 ### Is it safe to unpark CPU cores?
 Yes. It only changes power settings and writes an undo file first, so you can always roll back with `-Undo`. The trade-offs are higher idle power and temperatures (see [Side Effects](#side-effects)), not hardware risk — keep temps under ~85 °C.
@@ -219,10 +214,10 @@ Run the script with `-Undo` — see [Rollback](#rollback).
 
 ## Related
 
-- [MSI Mode Utility](https://github.com/vadyaravadim/msi-mode-utility) — enable MSI mode (Message Signaled Interrupts) for GPU, USB, network & audio devices to cut DPC latency and input lag
-- [Interrupt Affinity Utility](https://github.com/vadyaravadim/interrupt-affinity-utility) — pin GPU, network, USB & audio interrupts to specific CPU cores (P/E-core aware) to tame DPC latency
+- [MSI Mode Utility](https://github.com/vadyaravadim/msi-mode-utility) — enable MSI mode (Message Signaled Interrupts) for GPU, USB, network & audio devices
+- [Interrupt Affinity Utility](https://github.com/vadyaravadim/interrupt-affinity-utility) — pin GPU, network, USB & audio interrupts to specific CPU cores (P/E-core aware)
 - [Timer Resolution Utility](https://github.com/vadyaravadim/timer-resolution-utility) — set 0.5 ms timer resolution, disable dynamic tick, un-force HPET — with a built-in Sleep(1) benchmark
-- [GameDVR & FSO Disabler](https://github.com/vadyaravadim/gamedvr-fso-disabler) — disable Game DVR / Xbox Game Bar capture and Fullscreen Optimizations on Windows 10/11 to fix capture stutters and frame drops
+- [GameDVR & FSO Disabler](https://github.com/vadyaravadim/gamedvr-fso-disabler) — disable Game DVR / Xbox Game Bar capture and Fullscreen Optimizations on Windows 10/11
 - [Remove Hidden Devices](https://github.com/vadyaravadim/remove-hidden-devices) — remove ghost / hidden devices left behind by unplugged USB sticks, headsets & dongles cluttering Device Manager
 
 Same idea across the series: one transparent PowerShell script, no binaries, you see exactly what changes.
@@ -235,7 +230,7 @@ Same idea across the series: one transparent PowerShell script, no binaries, you
 
 <div align="center">
 
-If this fixed your stutters, consider giving it a ⭐
+If this helped, consider giving it a ⭐
 
 [Report Issues](https://github.com/vadyaravadim/cpu-parking-disabler/issues)
 
