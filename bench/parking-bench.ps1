@@ -13,9 +13,9 @@
       2. Parked-core count from the '\Processor Information(*)\Parking Status'
          performance counters, sampled before and after the run.
 
-    The math slice is calibrated once and cached in bench-config.json next to this
+    The math slice is calibrated once and cached in parking-bench-config.json next to this
     script, so every later run (and every power state) executes the exact same work.
-    Delete bench-config.json to recalibrate on a different machine.
+    Delete parking-bench-config.json to recalibrate on a different machine.
 
     For an independent throughput number, pair it with the 7-Zip benchmark:
         7zr b 3 -mmt32     (multi-thread)
@@ -25,11 +25,11 @@
     https://rigpolice.com/system/articles/disable-cpu-core-parking/
 
 .EXAMPLE
-    .\bench.ps1 -Phase stock
+    .\parking-bench.ps1 -Phase stock
     # ...change power settings...
-    .\bench.ps1 -Phase parked
+    .\parking-bench.ps1 -Phase parked
     # ...run cpu-parking-disabler...
-    .\bench.ps1 -Phase tweaked
+    .\parking-bench.ps1 -Phase tweaked
 #>
 param(
     [Parameter(Mandatory)][string]$Phase,
@@ -39,8 +39,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $outDir = $PSScriptRoot
+. (Join-Path $PSScriptRoot 'bench-env.ps1')
 
-Add-Type -TypeDefinition @'
+$parkBenchSource = @'
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -93,32 +94,37 @@ function Get-ParkedCount {
         Where-Object { $_.InstanceName -match '^\d+,\d+$' -and $_.CookedValue -eq 1 }).Count
 }
 
-# Calibrate once, then reuse the cached work size for every phase.
-$cfgPath = Join-Path $outDir 'bench-config.json'
-if (Test-Path $cfgPath) {
-    $cfg = Get-Content $cfgPath | ConvertFrom-Json
-} else {
-    Write-Host 'Calibrating work slice (first run only)...'
-    $ipms = [ParkBench]::CalibrateItersPerMs(800)
-    @{ itersPerMs = $ipms; workIters = [long]($ipms * 2.5) } | ConvertTo-Json | Set-Content $cfgPath
-    $cfg = Get-Content $cfgPath | ConvertFrom-Json
-}
+if ($MyInvocation.InvocationName -ne '.') {
+    Add-Type -TypeDefinition $parkBenchSource
 
-$parkedBefore = Get-ParkedCount
-$ft = [ParkBench]::FrameSim($Workers, $BudgetMs, [long]$cfg.workIters, $Frames)
-$parkedAfter = Get-ParkedCount
+    $cfgPath = Join-Path $outDir 'parking-bench-config.json'
+    if (Test-Path $cfgPath) {
+        $cfg = Get-Content $cfgPath | ConvertFrom-Json
+    } else {
+        Write-Host 'Calibrating work slice (first run only)...'
+        $ipms = [ParkBench]::CalibrateItersPerMs(800)
+        @{ itersPerMs = $ipms; workIters = [long]($ipms * 2.5) } | ConvertTo-Json | Set-Content $cfgPath
+        $cfg = Get-Content $cfgPath | ConvertFrom-Json
+    }
 
-$sorted = $ft | Sort-Object
-$n = $sorted.Count
-$result = [pscustomobject]@{
-    phase         = $Phase
-    parkedBefore  = $parkedBefore
-    parkedAfter   = $parkedAfter
-    frameAvgMs    = [math]::Round(($ft | Measure-Object -Average).Average, 3)
-    frameP50Ms    = [math]::Round($sorted[[int]($n * 0.50)], 3)
-    frameP99Ms    = [math]::Round($sorted[[int]($n * 0.99)], 3)
-    frameMaxMs    = [math]::Round(($ft | Measure-Object -Maximum).Maximum, 3)
-    overBudgetPct = [math]::Round(100.0 * (@($ft | Where-Object { $_ -gt $BudgetMs }).Count) / $n, 2)
+    $metadata = Get-BenchMetadata -BenchScript $PSCommandPath
+    $parkedBefore = Get-ParkedCount
+    $ft = [ParkBench]::FrameSim($Workers, $BudgetMs, [long]$cfg.workIters, $Frames)
+    $parkedAfter = Get-ParkedCount
+
+    $sorted = $ft | Sort-Object
+    $n = $sorted.Count
+    $result = [pscustomobject]@{
+        phase         = $Phase
+        parkedBefore  = $parkedBefore
+        parkedAfter   = $parkedAfter
+        frameAvgMs    = [math]::Round(($ft | Measure-Object -Average).Average, 3)
+        frameP50Ms    = Get-Percentile $sorted 0.50
+        frameP99Ms    = Get-Percentile $sorted 0.99
+        frameMaxMs    = [math]::Round(($ft | Measure-Object -Maximum).Maximum, 3)
+        overBudgetPct = [math]::Round(100.0 * (@($ft | Where-Object { $_ -gt $BudgetMs }).Count) / $n, 2)
+        metadata      = $metadata
+    }
+    Write-BenchResult -Object $result -Path (Join-Path $outDir "parking-bench-$Phase.json")
+    $result | Select-Object phase, parkedBefore, parkedAfter, frameAvgMs, frameP50Ms, frameP99Ms, frameMaxMs, overBudgetPct | Format-List
 }
-$result | ConvertTo-Json | Set-Content (Join-Path $outDir "bench-$Phase.json")
-$result | Format-List

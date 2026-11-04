@@ -1,6 +1,6 @@
 *.html
 parking_undo_*.json
-bench/bench-*.json
+bench/parking-bench-*.json
 .vs/
 .vscode/
 .claude/
