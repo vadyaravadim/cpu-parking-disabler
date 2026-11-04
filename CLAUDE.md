@@ -45,7 +45,7 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   the 1.1.x script matched it and showed nothing on Russian builds. The last two hex values of a setting
   block are AC then DC on every locale, and the scheme name is whatever sits in the trailing parentheses.
 - **Parked cores come from the `Win32_PerfFormattedData_Counters_ProcessorInformation` CIM class**, not the
-  `'\Processor Information(*)\Parking Status'` counter path `bench/bench.ps1` uses - the path is localized,
+  `'\Processor Information(*)\Parking Status'` counter path `bench/parking-bench.ps1` uses - the path is localized,
   the class name is not. `$null` (counters disabled or corrupt) renders as "unavailable", never as 0.
 - **The dual-CCD X3D guard is `X3D` in the name AND `NumberOfCores -ge 12`.** AMD's 3D V-Cache Performance
   Optimizer parks the non-V-Cache CCD during games through core parking; single-CCD parts (7800X3D,

@@ -1,0 +1,7 @@
+{
+  "title": "Core parking bench",
+  "intro": "Reproduce the measurements behind the RigPolice article https://rigpolice.com/system/articles/disable-cpu-core-parking/ . `parking-bench.ps1` measures frame pacing of a synthetic frame loop and the parked-core count in each power state; the CS2 load below is the CPU-bound real-game check.",
+  "needs": "Run one state per series: stock, then the state you want to compare (for example after `cpu-parking-disabler.ps1`).",
+  "run": "`.\\parking-bench.ps1 -Phase stock`, then `.\\parking-bench.ps1 -Phase tweaked`.",
+  "touch": "only its own worker threads and a one-time calibration file `parking-bench-config.json` next to the script"
+}

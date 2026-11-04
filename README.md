@@ -138,7 +138,7 @@ Three states on an i9-14900F (8 P + 16 E cores, Windows 11 24H2), one run each: 
 | Worst frame (144 Hz sim) | 6.5 ms | 17.3 ms | 5.4 ms |
 | Frames over the 6.9 ms budget | 0% | 0.14% | 0% |
 
-With parking held, multithreaded throughput fell and the frame tail got worse, the spikes people call micro-stutter. The script cleared both even against the hard caps, because its 100% minimum overrides them. One run per state, so read the forced column as a ceiling, not a typical cost. Full methodology, screenshots, and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it yourself with [`bench/bench.ps1`](bench/bench.ps1) + `7zr b 3 -mmt32`.
+With parking held, multithreaded throughput fell and the frame tail got worse, the spikes people call micro-stutter. The script cleared both even against the hard caps, because its 100% minimum overrides them. One run per state, so read the forced column as a ceiling, not a typical cost. Full methodology, screenshots, and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it yourself with [`bench/parking-bench.ps1`](bench/parking-bench.ps1) + `7zr b 3 -mmt32`.
 
 ## Verify: Check If Your CPU Cores Are Parked
 
