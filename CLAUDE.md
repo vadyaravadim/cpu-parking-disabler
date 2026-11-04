@@ -44,9 +44,11 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
 - **Never match `powercfg` labels.** "Current AC Power Setting Index" is localized on non-English Windows;
   the 1.1.x script matched it and showed nothing on Russian builds. The last two hex values of a setting
   block are AC then DC on every locale, and the scheme name is whatever sits in the trailing parentheses.
-- **Parked cores come from the `Win32_PerfFormattedData_Counters_ProcessorInformation` CIM class**, not the
-  `'\Processor Information(*)\Parking Status'` counter path `bench/parking-bench.ps1` uses - the path is localized,
-  the class name is not. `$null` (counters disabled or corrupt) renders as "unavailable", never as 0.
+- **Parked cores come from the `Win32_PerfFormattedData_Counters_ProcessorInformation` CIM class**, never
+  from `Get-Counter '\Processor Information(*)\Parking Status'` - that path is localized, the class name is not.
+  `bench/parking-bench.ps1` samples every 250 ms, so it opens the same counter through `PdhAddEnglishCounter`
+  (one path per instance name taken from the class; a wildcard would not expand). `$null` (counters disabled
+  or corrupt) renders as "unavailable", never as 0.
 - **The dual-CCD X3D guard is `X3D` in the name AND `NumberOfCores -ge 12`.** AMD's 3D V-Cache Performance
   Optimizer parks the non-V-Cache CCD during games through core parking; single-CCD parts (7800X3D,
   9800X3D) have nothing to park and must not get the prompt.
