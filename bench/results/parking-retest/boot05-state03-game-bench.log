@@ -1,0 +1,22 @@
+Load: Counter-Strike 2, workshop map CS2 FPS BENCHMARK (Angel). Start it as bench\README.md says; this window waits.
+Console line: game_type 3; game_mode 0; sv_skirmish_id 0; sv_game_mode_flags 32; mapgroup @workshop/3240880604/de_dust2; nextlevel de_dust2; map de_dust2 customgamemode=3240880604 nomapvalidation=true; hideconsole
+Waiting for cs2.exe ...
+Found cs2.exe. Waiting for '[VProf] VProfLite started.' in console.log ...
+Load started. Waiting 15 s, then capturing 100 s. Do not touch the PC.
+
+
+test              : game
+phase             : boot05-state03
+highQos           : True
+load              : @{name=cs2; build=1.41.9.6; videoConfig=; extraLaunchFlags=System.Object[]}
+presentMon        : @{sha256=b2a706bc6ad475749e3b7e3409263aa1e6906d45bdcf993f6dbc0f660188f1af; overflowedPresents=0}
+frames            : @{frames=77204; avgFps=772,1; p50Ms=1,121; low1PctMs=3,908; low01PctMs=4,33; cpuBusyP50Ms=1,121; gp
+                    uBusyP50Ms=1,063; syncIntervals=System.Object[]; presentModes=System.Object[]; refreshHz=180; cappe
+                    d=False; cappedReason=}
+rejected          : 
+parkedDuringRun   : @{logicalCpus=32; samples=387; unavailable=0; parked=}
+powerStateChanged : False
+files             : {parking-bench-boot05-state03-game-presentmon.csv, parking-bench-boot05-state03-game-parked.csv}
+
+
+

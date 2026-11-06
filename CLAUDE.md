@@ -49,6 +49,10 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   `bench/parking-bench.ps1` samples every 250 ms, so it opens the same counter through `PdhAddEnglishCounter`
   (one path per instance name taken from the class; a wildcard would not expand). `$null` (counters disabled
   or corrupt) renders as "unavailable", never as 0.
+- **`parking-bench.ps1` opts its own process out of power throttling (`SetHighQos`) and records the CPU each
+  burst thread ran on.** Without it a background burst can measure Windows QoS instead of parking: in the
+  2026-11-04 series every burst after the first game of a boot did ~11 core-equivalents instead of ~25 in
+  every power state. `coreClass` in the result shows where the threads actually ran.
 - **The dual-CCD X3D guard is `X3D` in the name AND `NumberOfCores -ge 12`.** AMD's 3D V-Cache Performance
   Optimizer parks the non-V-Cache CCD during games through core parking; single-CCD parts (7800X3D,
   9800X3D) have nothing to park and must not get the prompt.

@@ -64,6 +64,64 @@ using System.Runtime.InteropServices;
 using System.Threading;
 
 public static class ParkBench {
+    [StructLayout(LayoutKind.Sequential)]
+    struct PowerThrottlingState { public uint Version; public uint ControlMask; public uint StateMask; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct ProcessorNumber { public ushort Group; public byte Number; public byte Reserved; }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool SetProcessInformation(IntPtr process, int infoClass, ref PowerThrottlingState info, int size);
+
+    [DllImport("kernel32.dll")]
+    static extern IntPtr GetCurrentProcess();
+
+    [DllImport("kernel32.dll")]
+    static extern void GetCurrentProcessorNumberEx(out ProcessorNumber number);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetSystemCpuSetInformation(IntPtr information, int bufferLength, out int returnedLength, IntPtr process, int flags);
+
+    static int[] cpuGroup = new int[0];
+    static int[] cpuNumber = new int[0];
+
+    public static int[] CpuEfficiencyClass = new int[0];
+
+    public static bool SetHighQos() {
+        var state = new PowerThrottlingState { Version = 1, ControlMask = 1, StateMask = 0 };
+        return SetProcessInformation(GetCurrentProcess(), 4, ref state, Marshal.SizeOf(typeof(PowerThrottlingState)));
+    }
+
+    public static int LoadCpuSets() {
+        int length;
+        GetSystemCpuSetInformation(IntPtr.Zero, 0, out length, IntPtr.Zero, 0);
+        if (length <= 0) return 0;
+        IntPtr buffer = Marshal.AllocHGlobal(length);
+        try {
+            if (!GetSystemCpuSetInformation(buffer, length, out length, IntPtr.Zero, 0)) return 0;
+            var groups = new List<int>(); var numbers = new List<int>(); var classes = new List<int>();
+            for (int offset = 0; offset < length; ) {
+                int size = Marshal.ReadInt32(buffer, offset);
+                if (size <= 0) break;
+                if (Marshal.ReadInt32(buffer, offset + 4) == 0) {
+                    groups.Add(Marshal.ReadInt16(buffer, offset + 12));
+                    numbers.Add(Marshal.ReadByte(buffer, offset + 14));
+                    classes.Add(Marshal.ReadByte(buffer, offset + 18));
+                }
+                offset += size;
+            }
+            cpuGroup = groups.ToArray(); cpuNumber = numbers.ToArray(); CpuEfficiencyClass = classes.ToArray();
+            return CpuEfficiencyClass.Length;
+        } finally { Marshal.FreeHGlobal(buffer); }
+    }
+
+    public static int CurrentCpu() {
+        ProcessorNumber n;
+        GetCurrentProcessorNumberEx(out n);
+        for (int i = 0; i < cpuGroup.Length; i++) { if (cpuGroup[i] == n.Group && cpuNumber[i] == n.Number) return i; }
+        return -1;
+    }
+
     public static long Work(long iters) {
         unchecked {
             ulong x = 88172645463325252UL; long s = 0;
@@ -110,10 +168,12 @@ public static class ParkBench {
         public long[,] Work;
         public double[,] WakeMs;
         public int[] ParkedBefore;
+        public int[,] CpuAtWake;
+        public int[,] CpuAtEnd;
     }
 
     public static BurstResult Burst(int threads, long chunkIters, int windows, double windowMs, int bursts, int idleMs, ParkCounter counter) {
-        var result = new BurstResult { Work = new long[bursts, windows], WakeMs = new double[bursts, threads], ParkedBefore = new int[bursts] };
+        var result = new BurstResult { Work = new long[bursts, windows], WakeMs = new double[bursts, threads], ParkedBefore = new int[bursts], CpuAtWake = new int[bursts, threads], CpuAtEnd = new int[bursts, threads] };
         var start = new ManualResetEvent[bursts];
         for (int b = 0; b < bursts; b++) start[b] = new ManualResetEvent(false);
         var done = new CountdownEvent(threads);
@@ -130,6 +190,7 @@ public static class ParkBench {
                     start[b].WaitOne();
                     long origin = Volatile.Read(ref t0[b]);
                     result.WakeMs[b, id] = (sw.ElapsedTicks - origin) * msPerTick;
+                    result.CpuAtWake[b, id] = CurrentCpu();
                     Array.Clear(local, 0, windows);
                     while (true) {
                         Work(chunkIters);
@@ -137,6 +198,7 @@ public static class ParkBench {
                         if (w >= windows) break;
                         local[w] += chunkIters;
                     }
+                    result.CpuAtEnd[b, id] = CurrentCpu();
                     for (int w = 0; w < windows; w++) Interlocked.Add(ref result.Work[b, w], local[w]);
                     done.Signal();
                 }
@@ -246,6 +308,27 @@ function Get-SpreadSummary {
         median = Get-Percentile $sorted 0.50
         min = [math]::Round($sorted[0], 3)
         max = [math]::Round($sorted[-1], 3)
+    }
+}
+
+function Get-CoreClassSummary {
+    param([Parameter(Mandatory)][int[,]]$Cpu, [Parameter(Mandatory)][int[]]$EfficiencyClass)
+    $classes = @($EfficiencyClass | Sort-Object -Unique)
+    $counts = @{}
+    foreach ($c in $classes) { $counts[$c] = 0 }
+    $unknown = 0
+    $total = 0
+    for ($b = 0; $b -lt $Cpu.GetLength(0); $b++) {
+        for ($t = 0; $t -lt $Cpu.GetLength(1); $t++) {
+            $index = $Cpu[$b, $t]
+            $total++
+            if ($index -lt 0 -or $index -ge $EfficiencyClass.Count) { $unknown++ } else { $counts[$EfficiencyClass[$index]]++ }
+        }
+    }
+    [pscustomobject]@{
+        logicalCpusPerClass = @($classes | ForEach-Object { $cls = $_; [pscustomobject]@{ efficiencyClass = $cls; cpus = @($EfficiencyClass | Where-Object { $_ -eq $cls }).Count } })
+        threadShareAtEndPerClass = @($classes | ForEach-Object { [pscustomobject]@{ efficiencyClass = $_; share = $(if ($total) { [math]::Round($counts[$_] / $total, 4) } else { $null }) } })
+        unknown = $unknown
     }
 }
 
@@ -394,6 +477,16 @@ function Get-VideoConfigCheck {
     [pscustomobject]@{ found = $true; mismatchedKeys = @(Get-VideoConfigMismatch -Expected $expected -Installed $installed -KeyPrefix $Recipe.videoConfig.compareKeyPrefix) }
 }
 
+function Get-GameRejection {
+    param([Parameter(Mandatory)]$Stats, [Parameter(Mandatory)]$Capture, $Video, [Parameter(Mandatory)]$Recipe)
+    $reasons = New-Object System.Collections.Generic.List[string]
+    if ($Stats.capped) { $reasons.Add("$((Get-BenchConfig).CappedMessage) ($($Stats.cappedReason))") }
+    if ($Capture.overflowedPresents -gt 0) { $reasons.Add("PresentMon lost $($Capture.overflowedPresents) frames (present event buffer overflow)") }
+    if ($Video -and -not $Video.found) { $reasons.Add("no installed $($Recipe.videoConfig.file) found under the Steam userdata folder") }
+    if ($Video -and $Video.mismatchedKeys.Count) { $reasons.Add("the installed $($Recipe.videoConfig.file) differs from bench\loads\$($Recipe.videoConfig.file) in $($Video.mismatchedKeys -join ', ')") }
+    if ($reasons.Count) { $reasons -join '; ' } else { $null }
+}
+
 function Get-LoadBuild {
     param([Parameter(Mandatory)]$Recipe, [Parameter(Mandatory)][string]$ExePath)
     if ($Recipe.build) {
@@ -433,6 +526,9 @@ function New-ParkCounter {
 
 if ($MyInvocation.InvocationName -ne '.') {
     Add-Type -TypeDefinition $parkBenchSource
+    $highQos = [ParkBench]::SetHighQos()
+    if (-not $highQos) { Write-Warning 'Could not opt this process out of power throttling: Windows may run it as EcoQoS on efficient cores.' }
+    $cpuSets = [ParkBench]::LoadCpuSets()
 
     if (-not (Test-Path -Path $OutDir)) { throw "OutDir $OutDir does not exist." }
     $cfgPath = Join-Path $PSScriptRoot 'parking-bench-config.json'
@@ -447,7 +543,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     $logical = [Environment]::ProcessorCount
     $counter = New-ParkCounter
     if (-not $counter) { Write-Warning 'Performance counters are unavailable: the parked count is not recorded.' }
-    $result = [ordered]@{ test = $Test; phase = $Phase }
+    $result = [ordered]@{ test = $Test; phase = $Phase; highQos = $highQos }
     $files = New-Object System.Collections.Generic.List[string]
 
     try {
@@ -464,9 +560,9 @@ if ($MyInvocation.InvocationName -ne '.') {
                 }
                 Write-CsvFile -Path "$base-work.csv" -Header 'burst,windowStartMs,iterations,parkedBefore' -Lines @($workLines)
                 $wakeLines = for ($b = 0; $b -lt $Bursts; $b++) {
-                    for ($t = 0; $t -lt $threadCount; $t++) { "$b,$t,$(Format-Invariant ($r.WakeMs[$b, $t]))" }
+                    for ($t = 0; $t -lt $threadCount; $t++) { "$b,$t,$(Format-Invariant ($r.WakeMs[$b, $t])),$($r.CpuAtWake[$b, $t]),$($r.CpuAtEnd[$b, $t])" }
                 }
-                Write-CsvFile -Path "$base-wake.csv" -Header 'burst,thread,wakeMs' -Lines @($wakeLines)
+                Write-CsvFile -Path "$base-wake.csv" -Header 'burst,thread,wakeMs,cpuAtWake,cpuAtEnd' -Lines @($wakeLines)
                 $files.Add("$base-work.csv")
                 $files.Add("$base-wake.csv")
                 $result.threads = $threadCount
@@ -478,6 +574,8 @@ if ($MyInvocation.InvocationName -ne '.') {
                 $result.itersPerMs = [math]::Round($cfg.itersPerMs, 1)
                 $result.parkedBeforeBurst = Get-ParkedSummary -Values $r.ParkedBefore -Total $logical
                 $result.burst = Get-BurstSummary -Work $r.Work -WakeMs $r.WakeMs -ItersPerMs $cfg.itersPerMs -WindowMs $WindowMs
+                $result.cpuEfficiencyClass = @([ParkBench]::CpuEfficiencyClass)
+                $result.coreClass = if ($cpuSets) { Get-CoreClassSummary -Cpu $r.CpuAtEnd -EfficiencyClass ([ParkBench]::CpuEfficiencyClass) } else { $null }
             }
             'framesim' {
                 $metadata = Get-BenchMetadata -BenchScript $PSCommandPath
@@ -532,13 +630,9 @@ if ($MyInvocation.InvocationName -ne '.') {
                     videoConfig = $video
                     extraLaunchFlags = @(Get-ExtraLaunchFlag -CommandLine $cmd -Expected (Get-RecipeProcessArg -Recipe $recipe))
                 }
-                $result.presentMon = [pscustomobject]@{ sha256 = $capture.presentMonSha256 }
+                $result.presentMon = [pscustomobject]@{ sha256 = $capture.presentMonSha256; overflowedPresents = $capture.overflowedPresents }
                 $result.frames = $stats
-                $reasons = New-Object System.Collections.Generic.List[string]
-                if ($stats.capped) { $reasons.Add("$((Get-BenchConfig).CappedMessage) ($($stats.cappedReason))") }
-                if ($video -and -not $video.found) { $reasons.Add("no installed $($recipe.videoConfig.file) found under the Steam userdata folder") }
-                if ($video -and $video.mismatchedKeys.Count) { $reasons.Add("the installed $($recipe.videoConfig.file) differs from bench\loads\$($recipe.videoConfig.file) in $($video.mismatchedKeys -join ', ')") }
-                $result.rejected = if ($reasons.Count) { $reasons -join '; ' } else { $null }
+                $result.rejected = Get-GameRejection -Stats $stats -Capture $capture -Video $video -Recipe $recipe
                 $result.parkedDuringRun = Get-ParkedSummary -Values $parked -Total $logical
             }
         }

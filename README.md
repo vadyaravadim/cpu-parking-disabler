@@ -126,19 +126,19 @@ Parked cores  : 24 of 32 -> 0 of 32
 
 ## The Problem: Parked Cores and Bursty Load
 
-Windows parks cores to save power: a parked core generally gets no threads, and the cores still awake carry the load. When load rises, Windows unparks more of them, but no sooner than a policy-set number of performance check intervals (`CPIncreaseTime`), so a sudden burst lands on fewer cores first. Whether that costs you frames depends on whether your PC parks at all: on our i9-14900F desktop, stock Windows 11 never parked a core. Check yours with [`-Status`](#verify-check-if-your-cpu-cores-are-parked) before you change anything.
+Windows parks cores to save power: a parked core generally gets no threads, and the cores still awake carry the load. When load rises, Windows unparks more of them, but no sooner than a policy-set number of performance check intervals (`CPIncreaseTime`), so a sudden burst lands on fewer cores first. On our i9-14900F desktop, stock Windows 11 parked 31 of 32 threads at idle, and the last thread of a sudden burst woke about 16 ms late; in a running game it cost no measurable fps. Check yours with [`-Status`](#verify-check-if-your-cpu-cores-are-parked) before you change anything.
 
 ## Measured Impact
 
-Three states on an i9-14900F (8 P + 16 E cores, Windows 11 24H2), one run each: stock, parking forced by hand (24 of 32 threads held parked for the whole run, which stock Windows does not do), and after this script:
+100 runs on an i9-14900F (8 P + 16 E cores, Windows 11 26H2) on the factory Balanced plan, which on this CPU lets Windows park down to 4% of cores. Every state ran in its own boots, 8 runs each (6 for the forced states), in Counter-Strike 2 (CPU-bound, PresentMon) and in a 32-thread burst test after 2 s of idle:
 
-| Metric | Stock | Parking forced | After the script |
-|--------|-------|----------------|------------------|
-| 7-Zip rating, 32 threads | 175,111 MIPS | 71,120 MIPS (−59%) | 175,695 MIPS |
-| Worst frame (144 Hz sim) | 6.5 ms | 17.3 ms | 5.4 ms |
-| Frames over the 6.9 ms budget | 0% | 0.14% | 0% |
+| State | CS2 avg fps, median [range] | Parked at idle | Last thread of a burst awake after |
+|-------|-----------------------------|----------------|------------------------------------|
+| Stock | 770.0 [764.7-774.0] | 31 of 32 | 15.9 ms |
+| After this script (min cores 100%, EPP 0) | 769.0 [756.9-773.1] | 0 | 0.26 ms |
+| Parking forced (max cores 25%) | 783.5 [776.0-792.1] | 31 of 32 | 160 ms |
 
-With parking held, multithreaded throughput fell and the frame tail got worse, the spikes people call micro-stutter. The script cleared both even against the hard caps, because its 100% minimum overrides them. One run per state, so read the forced column as a ceiling, not a typical cost. Full methodology, screenshots, and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it yourself with [`bench/parking-bench.ps1`](bench/parking-bench.ps1) + `7zr b 3 -mmt32`.
+Parking is real on a stock desktop, and the script makes idle threads wake up about 50 times sooner. In the game it changed nothing measurable: the difference sits inside the run-to-run spread, and the 1% and 0.1% lows match. Every run, the per-frame logs and the full table of seven states: [`bench/results`](bench/results/). Full write-up and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it with [`bench/parking-bench.ps1`](bench/parking-bench.ps1).
 
 ## Verify: Check If Your CPU Cores Are Parked
 
@@ -186,7 +186,7 @@ A Windows power-management feature: the scheduler stops placing threads on some 
 Unparking means forcing Windows to keep every core active instead of parking idle ones. This script **unparks all CPU cores** by setting Core Parking Min Cores to 100%.
 
 ### Does disabling core parking increase FPS?
-Not on our desktop: stock Windows 11 never parked a core on our i9-14900F, so there was nothing to change. With parking forced by hand, the frame tail got worse and the script cleared it (see [Measured Impact](#measured-impact)). We have not measured FPS or input lag in a real game. If `-Status` never shows a parked core, you won't notice a difference.
+Not in our tests. On an i9-14900F, stock Windows 11 parked 31 of 32 threads at idle, yet CS2 averaged 770 fps at stock and 769 fps after the script across 50 runs, inside the run-to-run spread (see [Measured Impact](#measured-impact)). What the script does change is how fast idle threads wake up in a burst. We have not measured input lag.
 
 ### Is it safe to unpark CPU cores?
 Yes. It only changes power settings and writes an undo file first, so you can always roll back with `-Undo`. The trade-offs are higher idle power and temperatures (see [Side Effects](#side-effects)), not hardware risk — keep temps under ~85 °C.
