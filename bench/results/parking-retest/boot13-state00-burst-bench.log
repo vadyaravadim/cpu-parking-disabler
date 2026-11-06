@@ -1,0 +1,23 @@
+Burst: 32 threads, 50 bursts of 200 ms after 2 s idle. Do not touch the PC.
+
+
+test               : burst
+phase              : boot13-state00
+highQos            : True
+threads            : 32
+bursts             : 50
+idleSeconds        : 2
+burstMs            : 200
+windowMs           : 1
+chunkIterations    : 18157
+itersPerMs         : 907841,0
+parkedBeforeBurst  : @{logicalCpus=32; samples=50; unavailable=0; parked=}
+burst              : @{earlyWindowMs=5; earlyCoreMs=; totalCoreMs=; lastWorkerWakeMs=; busyCoresPerWindowMedian=System.
+                     Double[]}
+cpuEfficiencyClass : {1, 1, 1, 1...}
+coreClass          : @{logicalCpusPerClass=System.Object[]; threadShareAtEndPerClass=System.Object[]; unknown=0}
+powerStateChanged  : False
+files              : {parking-bench-boot13-state00-burst-work.csv, parking-bench-boot13-state00-burst-wake.csv}
+
+
+

@@ -109,3 +109,35 @@ Describe 'Get-VideoConfigMismatch' {
         Get-VideoConfigMismatch -Expected $shipped -Installed $mine -KeyPrefix 'setting.' | Should -Be @('setting.defaultres', 'setting.mat_vsync')
     }
 }
+
+Describe 'Get-CoreClassSummary' {
+    It 'counts the logical CPUs per efficiency class and the share of threads that ended on each' {
+        $cpu = New-Object 'int[,]' 2, 2
+        $cpu[0, 0] = 0; $cpu[0, 1] = 2; $cpu[1, 0] = 3; $cpu[1, 1] = -1
+        $s = Get-CoreClassSummary -Cpu $cpu -EfficiencyClass @(1, 1, 0, 0)
+        ($s.logicalCpusPerClass | Where-Object efficiencyClass -eq 1).cpus | Should -Be 2
+        ($s.threadShareAtEndPerClass | Where-Object efficiencyClass -eq 0).share | Should -Be 0.5
+        ($s.threadShareAtEndPerClass | Where-Object efficiencyClass -eq 1).share | Should -Be 0.25
+        $s.unknown | Should -Be 1
+    }
+}
+
+Describe 'Get-GameRejection' {
+    BeforeAll {
+        $script:recipe = [pscustomobject]@{ videoConfig = [pscustomobject]@{ file = 'video.txt' } }
+        $script:okStats = [pscustomobject]@{ capped = $false; cappedReason = '' }
+    }
+    It 'accepts a run with no capped frames and no lost frames' {
+        Get-GameRejection -Stats $okStats -Capture ([pscustomobject]@{ overflowedPresents = 0 }) -Video $null -Recipe $recipe | Should -BeNullOrEmpty
+    }
+    It 'rejects a run that lost frames to a present event buffer overflow' {
+        $reason = Get-GameRejection -Stats $okStats -Capture ([pscustomobject]@{ overflowedPresents = 130 }) -Video $null -Recipe $recipe
+        $reason | Should -Be 'PresentMon lost 130 frames (present event buffer overflow)'
+    }
+    It 'still rejects a capped run and joins several reasons' {
+        $capped = [pscustomobject]@{ capped = $true; cappedReason = 'vsync' }
+        $reason = Get-GameRejection -Stats $capped -Capture ([pscustomobject]@{ overflowedPresents = 2 }) -Video $null -Recipe $recipe
+        $reason | Should -Match 'vsync'
+        $reason | Should -Match 'lost 2 frames'
+    }
+}

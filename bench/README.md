@@ -27,7 +27,7 @@ Nothing persistent. It reads the registry, `powercfg /qh`, WMI and performance c
 
 ## Result record
 
-Each result stores the bench script name and its SHA256, the OS build, display version and update revision, the active power scheme GUID with every processor setting for AC and DC, the load name and the PresentMon version, next to the measurements. `parking-bench.ps1` adds the parked-core count, the power state at the end of the run (a change marks the run) and, for `-Test game`, the game build, whether the installed video config matches the shipped one (mismatched key names only) and the names of launch flags outside the recipe (names only, no values). Nothing else is recorded: no process or service list, no driver inventory, no user name or computer name.
+Each result stores the bench script name and its SHA256, the OS build, display version and update revision, the active power scheme GUID with every processor setting for AC and DC, the load name and the PresentMon version, next to the measurements. `parking-bench.ps1` adds the parked-core count, the power state at the end of the run (a change marks the run) and, for `-Test game`, the game build, whether the installed video config matches the shipped one (mismatched key names only) and the names of launch flags outside the recipe (names only, no values), and the count of frames PresentMon lost to a present event buffer overflow (`presentMon.overflowedPresents`; a run that lost any is rejected). Nothing else is recorded: no process or service list, no driver inventory, no user name or computer name.
 
 ## Reading the result
 
