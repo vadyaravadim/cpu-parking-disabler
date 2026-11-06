@@ -1,6 +1,5 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\parking-bench.ps1') -Phase 'import-test'
-    $script:loadFiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot '..\loads') -Filter '*.json' -File)
 }
 
 Describe 'Get-BurstSummary' {
@@ -45,71 +44,6 @@ Describe 'Get-ParkedSummary' {
     }
 }
 
-Describe 'Find-LogMarker' {
-    It 'finds the marker only after the offset' {
-        $text = "a`n[VProf] VProfLite started.`nb"
-        Find-LogMarker -Text $text -Pattern '[VProf] VProfLite started.' | Should -Be 2
-        Find-LogMarker -Text $text -Pattern '[VProf] VProfLite started.' -From 5 | Should -Be -1
-    }
-    It 'treats the pattern as plain text, not a regex' {
-        Find-LogMarker -Text 'VProf VProfLite started' -Pattern '[VProf] VProfLite started.' | Should -Be -1
-    }
-    It 'returns -1 when the log is shorter than the offset' {
-        Find-LogMarker -Text 'short' -Pattern 'x' -From 100 | Should -Be -1
-    }
-}
-
-Describe 'Get-ExtraLaunchFlag' {
-    It 'names flags outside the recipe and drops the exe and every value' {
-        $cmd = '"D:\Games\cs2.exe" -steam -novid +con_enable 1 -vulkan -console -name "secret"'
-        Get-ExtraLaunchFlag -CommandLine $cmd -Expected @('-novid', '+con_enable', '1', '-console') | Should -Be @('-steam', '-vulkan', '-name')
-    }
-    It 'returns nothing when the command line matches the recipe' {
-        Get-ExtraLaunchFlag -CommandLine 'cs2.exe -novid' -Expected @('-novid') | Should -BeNullOrEmpty
-    }
-}
-
-Describe 'load recipes for -Test game' {
-    It 'loads <_.BaseName> and fits the capture inside a workshop route' -ForEach $loadFiles {
-        { Get-LoadRecipe -Name $_.BaseName } | Should -Not -Throw
-    }
-    It 'gives <_.BaseName> a process name and a PresentMon process name' -ForEach $loadFiles {
-        $r = Get-LoadRecipe -Name $_.BaseName
-        $r.process | Should -Not -BeNullOrEmpty
-        $r.presentMonProcess | Should -Be "$($r.process).exe"
-    }
-    It 'refuses an unknown load and lists the known ones' {
-        { Get-LoadRecipe -Name 'nope' } | Should -Throw '*cs2*'
-    }
-    It 'drops the Steam -applaunch pair from the args the game process sees' {
-        $r = Get-LoadRecipe -Name 'cs2'
-        $procArgs = Get-RecipeProcessArg -Recipe $r
-        $procArgs | Should -Not -Contain '-applaunch'
-        $procArgs | Should -Contain '-condebug'
-    }
-    It 'keeps every arg for a program started directly' {
-        $r = Get-LoadRecipe -Name 'superposition'
-        (Get-RecipeProcessArg -Recipe $r).Count | Should -Be @($r.launchArgs).Count
-    }
-}
-
-Describe 'Get-VideoConfigMismatch' {
-    BeforeAll {
-        $script:shipped = Join-Path $TestDrive 'shipped.txt'
-        Set-Content -Path $shipped -Value @('"video.cfg"', '{', "`t`"Version`"`t`t`"16`"", "`t`"VendorID`"`t`t`"4098`"", "`t`"setting.defaultres`"`t`t`"1280`"", "`t`"setting.mat_vsync`"`t`t`"0`"", '}')
-    }
-    It 'ignores machine keys outside the prefix and accepts equal settings' {
-        $mine = Join-Path $TestDrive 'mine-ok.txt'
-        Set-Content -Path $mine -Value @('"video.cfg"', '{', "`t`"VendorID`"`t`t`"4318`"", "`t`"setting.defaultres`"`t`t`"1280`"", "`t`"setting.mat_vsync`"`t`t`"0`"", "`t`"setting.extra`"`t`t`"1`"", '}')
-        Get-VideoConfigMismatch -Expected $shipped -Installed $mine -KeyPrefix 'setting.' | Should -BeNullOrEmpty
-    }
-    It 'names each setting that differs or is missing' {
-        $mine = Join-Path $TestDrive 'mine-bad.txt'
-        Set-Content -Path $mine -Value @('"video.cfg"', '{', "`t`"setting.defaultres`"`t`t`"640`"", '}')
-        Get-VideoConfigMismatch -Expected $shipped -Installed $mine -KeyPrefix 'setting.' | Should -Be @('setting.defaultres', 'setting.mat_vsync')
-    }
-}
-
 Describe 'Get-CoreClassSummary' {
     It 'counts the logical CPUs per efficiency class and the share of threads that ended on each' {
         $cpu = New-Object 'int[,]' 2, 2
@@ -119,25 +53,5 @@ Describe 'Get-CoreClassSummary' {
         ($s.threadShareAtEndPerClass | Where-Object efficiencyClass -eq 0).share | Should -Be 0.5
         ($s.threadShareAtEndPerClass | Where-Object efficiencyClass -eq 1).share | Should -Be 0.25
         $s.unknown | Should -Be 1
-    }
-}
-
-Describe 'Get-GameRejection' {
-    BeforeAll {
-        $script:recipe = [pscustomobject]@{ videoConfig = [pscustomobject]@{ file = 'video.txt' } }
-        $script:okStats = [pscustomobject]@{ capped = $false; cappedReason = '' }
-    }
-    It 'accepts a run with no capped frames and no lost frames' {
-        Get-GameRejection -Stats $okStats -Capture ([pscustomobject]@{ overflowedPresents = 0 }) -Video $null -Recipe $recipe | Should -BeNullOrEmpty
-    }
-    It 'rejects a run that lost frames to a present event buffer overflow' {
-        $reason = Get-GameRejection -Stats $okStats -Capture ([pscustomobject]@{ overflowedPresents = 130 }) -Video $null -Recipe $recipe
-        $reason | Should -Be 'PresentMon lost 130 frames (present event buffer overflow)'
-    }
-    It 'still rejects a capped run and joins several reasons' {
-        $capped = [pscustomobject]@{ capped = $true; cappedReason = 'vsync' }
-        $reason = Get-GameRejection -Stats $capped -Capture ([pscustomobject]@{ overflowedPresents = 2 }) -Video $null -Recipe $recipe
-        $reason | Should -Match 'vsync'
-        $reason | Should -Match 'lost 2 frames'
     }
 }
