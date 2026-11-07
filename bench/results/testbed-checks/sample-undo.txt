@@ -1,14 +1,14 @@
 
 ===================================
-  CPU PARKING DISABLER v1.3.1
+  CPU PARKING DISABLER v1.3.2
 ===================================
 
-Reverting: parking_undo_20261107_171346.json
+Reverting: parking_undo_20261107_222735.json
 Power scheme  : Balanced (381b4222-f694-41f0-9685-ff5bb260df2e)
   [OK ] CPMINCORES   AC Windows default  DC Windows default
   [OK ] CPMINCORES1  AC Windows default  DC Windows default
   [OK ] PERFEPP      AC Windows default  DC Windows default
   [OK ] PERFEPP1     AC Windows default  DC Windows default
 
-Parked cores  : 22 of 32
+Parked cores  : 26 of 32
 Done.
