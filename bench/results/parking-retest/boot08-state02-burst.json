@@ -1,56 +1,75 @@
 {
-  "series": "parking-retest",
-  "boot": 8,
-  "stateIndex": 2,
-  "state": {
-    "kind": "parking",
-    "scheme": "381b4222-f694-41f0-9685-ff5bb260df2e",
-    "settings": {
-      "CPMAXCORES": 25,
-      "CPMINCORES": 100,
-      "CPMINCORES1": 100,
-      "PERFEPP": 33,
-      "PERFEPP1": 33
-    },
-    "step": "burst"
-  },
-  "load": "cs2",
-  "capturedAt": "2026-11-06T01:23:43",
-  "bench": {
-    "exitCode": 0,
-    "resultFile": "parking-bench-boot08-state02-burst.json",
-    "files": [
-      "parking-bench-boot08-state02-burst.json",
-      "parking-bench-boot08-state02-burst-wake.csv",
-      "parking-bench-boot08-state02-burst-work.csv"
-    ],
-    "log": "boot08-state02-burst-bench.log"
-  },
-  "environment": {
-    "cpu": {
-      "name": "Intel(R) Core(TM) i9-14900F"
-    },
-    "microcodeRaw": "37-01-00-00",
-    "bios": {
-      "version": "1.C0",
-      "board": "Micro-Star International Co., Ltd. MAG B760M MORTAR II (MS-7E13)"
-    },
-    "drivers": {
-      "gpu": [
-        {
-          "device": "AMD Radeon RX 7800 XT",
-          "version": "32.0.32015.7029"
-        }
-      ],
-      "audio": []
-    },
-    "hvciEnabled": 1,
-    "clockFlags": {
-      "useplatformclock": "not set",
-      "useplatformtick": "not set",
-      "disabledynamictick": "not set",
-      "tscsyncpolicy": "not set",
-      "hypervisorlaunchtype": "Auto"
-    }
-  }
+    "series":  "parking-retest",
+    "boot":  8,
+    "stateIndex":  2,
+    "state":  {
+                  "kind":  "parking",
+                  "scheme":  "381b4222-f694-41f0-9685-ff5bb260df2e",
+                  "settings":  {
+                                   "CPMAXCORES":  25,
+                                   "CPMINCORES":  100,
+                                   "CPMINCORES1":  100,
+                                   "PERFEPP":  33,
+                                   "PERFEPP1":  33
+                               },
+                  "step":  "burst"
+              },
+    "load":  "cs2",
+    "capturedAt":  "2026-11-06T01:23:43",
+    "bench":  {
+                  "exitCode":  0,
+                  "resultFile":  "parking-bench-boot08-state02-burst.json",
+                  "files":  [
+                                "parking-bench-boot08-state02-burst.json",
+                                "parking-bench-boot08-state02-burst-wake.csv",
+                                "parking-bench-boot08-state02-burst-work.csv"
+                            ],
+                  "log":  "boot08-state02-burst-bench.log"
+              },
+    "environment":  {
+                        "cpu":  {
+                                    "name":  "Intel(R) Core(TM) i9-14900F"
+                                },
+                        "microcodeRaw":  "37-01-00-00",
+                        "bios":  {
+                                     "version":  "1.C0",
+                                     "board":  "Micro-Star International Co., Ltd. MAG B760M MORTAR II (MS-7E13)"
+                                 },
+                        "drivers":  {
+                                        "gpu":  [
+                                                    {
+                                                        "device":  "AMD Radeon RX 7800 XT",
+                                                        "version":  "32.0.32015.7029"
+                                                    }
+                                                ],
+                                        "audio":  [
+                                                      {
+                                                          "device":  "Realtek High Definition Audio",
+                                                          "version":  "6.0.10007.1"
+                                                      },
+                                                      {
+                                                          "device":  "AMD High Definition Audio Device",
+                                                          "version":  "10.0.1.41"
+                                                      }
+                                                  ],
+                                        "chipset":  [
+                                                        {
+                                                            "device":  "High Definition Audio Controller",
+                                                            "version":  "10.0.26100.9818"
+                                                        },
+                                                        {
+                                                            "device":  "High Definition Audio Bus",
+                                                            "version":  "25.30.0.1"
+                                                        }
+                                                    ]
+                                    },
+                        "hvciEnabled":  1,
+                        "clockFlags":  {
+                                           "useplatformclock":  "not set",
+                                           "useplatformtick":  "not set",
+                                           "disabledynamictick":  "not set",
+                                           "tscsyncpolicy":  "not set",
+                                           "hypervisorlaunchtype":  "Auto"
+                                       }
+                    }
 }
