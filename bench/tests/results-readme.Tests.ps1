@@ -420,9 +420,14 @@ Describe 'the published series carries no PC inventory' {
             'environment' = @('cpu', 'bios', 'microcodeRaw', 'hvciEnabled', 'clockFlags', 'powerExplicit', 'drivers')
             'environment.cpu' = @('name')
             'environment.bios' = @('board', 'version')
-            'environment.drivers' = @('gpu', 'audio')
+            'environment.drivers' = @('gpu', 'audio', 'chipset')
             'environment.drivers.gpu' = @('device', 'version')
             'environment.drivers.audio' = @('device', 'version', 'enumerator')
+            'environment.drivers.chipset' = @('device', 'version')
+        }
+        $script:hdAudioDrivers = @{
+            audio = @('AMD High Definition Audio Device 10.0.1.41', 'Realtek High Definition Audio 6.0.10007.1')
+            chipset = @('High Definition Audio Bus 25.30.0.1', 'High Definition Audio Controller 10.0.26100.9818')
         }
         $script:journalFields = @{
             'start' = @('at', 'event', 'boots', 'services', 'tasks', 'startup', 'noReboot')
@@ -451,9 +456,13 @@ Describe 'the published series carries no PC inventory' {
         $extra | Should -BeNullOrEmpty
     }
 
-    It 'keeps only the HD Audio drivers in every runner record' {
-        $other = @($runs | ForEach-Object { @($_.Record.environment.drivers.audio) } | Where-Object { $_ -and $_.enumerator -ne 'HDAUDIO' })
-        $other | Should -BeNullOrEmpty
+    It 'keeps exactly the two HD Audio device drivers and the two HD Audio controller drivers in every runner record' {
+        foreach ($run in $runs) {
+            foreach ($kind in $hdAudioDrivers.Keys) {
+                $rows = @($run.Record.environment.drivers.$kind | ForEach-Object { "$($_.device) $($_.version)" } | Sort-Object)
+                ($rows -join ' | ') | Should -BeExactly ($hdAudioDrivers[$kind] -join ' | ') -Because "$($run.File) drivers.$kind"
+            }
+        }
     }
 
     It 'keeps only outcomes and counts in journal.jsonl, no error text' {
