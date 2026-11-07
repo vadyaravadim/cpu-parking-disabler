@@ -144,23 +144,23 @@ Resource Monitor, CPU tab, on the same PC: seconds before the run above and a mi
 | `PERFEPP` | Energy Performance Preference (E-cores / all cores) | 33 | **0** |
 | `PERFEPP1` | Energy Performance Preference (P-cores, hybrid CPUs) | 33 | **0** |
 
-> `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only matter on hybrid CPUs (Intel 12th gen+); on other CPUs Windows ignores them. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless.
+> `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings. They only matter on hybrid CPUs (Intel chips with E-cores, 12th gen and newer); on other CPUs Windows ignores them. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless.
 
 ## The Problem: Parked Cores and Bursty Load
 
-Windows parks cores to save power: a parked core generally gets no threads, and the cores still awake carry the load. When load rises, Windows unparks more of them, but no sooner than a policy-set number of performance check intervals (`CPIncreaseTime`), so a sudden burst lands on fewer cores first. On our i9-14900F desktop, stock Windows 11 parked 31 of 32 threads at idle, and the last thread of a sudden burst woke about 16 ms late; in a running game it cost no measurable fps. Check yours with [`-Status`](#verify-check-if-your-cpu-cores-are-parked) before you change anything.
+Windows parks cores to save power: a parked core generally gets no threads, and the cores still awake carry the load. When load rises, Windows unparks more of them, but no sooner than a policy-set number of performance check intervals (`CPIncreaseTime`), so a sudden burst lands on fewer cores first. On our i9-14900F desktop, stock Windows 11 kept 29 to 30 of 32 threads parked at desktop idle, and the last thread of a sudden burst woke about 16 ms late in a typical burst and up to 33 ms late. In CS2, the script's settings ran 0.34% slower than stock at the median of 8 same-boot comparisons, a gap 8 boots cannot tell apart from chance. Check yours with [`-Status`](#verify-check-if-your-cpu-cores-are-parked) before you change anything.
 
 ## Measured Impact
 
 100 runs on an i9-14900F (8 P + 16 E cores, Windows 11 26H2) on Windows' default Balanced plan, where this CPU's E-cores can park down to 4% and its P-cores down to 0%. Each boot ran every state of its block once, in a balanced order: 8 boots of the four normal states and 6 boots of the three forced ones, giving 8 runs per state (6 for the forced states) in Counter-Strike 2 (CPU-bound, PresentMon) and in a 32-thread burst test after 2 s of idle:
 
-| State | CS2 avg fps, median [range] | Parked at idle | Last thread of a burst awake after |
-|-------|-----------------------------|----------------|------------------------------------|
-| Stock | 770.0 [764.7-774.0] | 31 of 32 | 15.9 ms |
-| After this script (min cores 100%, EPP 0) | 769.0 [756.9-773.1] | 0 | 0.26 ms |
-| Parking forced (max cores 25%) | 783.6 [776.0-792.1] | 31 of 32 | 160 ms |
+| State | CS2 avg fps, median [range] | Parked before a burst, after 2 s idle | Last thread of a burst awake after, median | Bursts with a wait over 20 ms |
+|-------|-----------------------------|---------------------------------------|--------------------------------------------|-------------------------------|
+| Stock | 770.0 [764.7-774.0] | 31 of 32 | 15.9 ms | 156 of 400 |
+| After this script (min cores 100%, EPP 0) | 769.0 [756.9-773.1] | 0 | 0.26 ms | 1 of 400 |
+| Parking forced (max cores 25%) | 783.6 [776.0-792.1] | 31 of 32 | 160 ms | 300 of 300 |
 
-Parking is real on a stock desktop, and the script makes idle threads wake up about 60 times sooner. In the game it changed nothing measurable: the difference sits inside the run-to-run spread, and the 1% and 0.1% lows match. Every run, the per-frame logs and the full table of seven states: [`bench/results`](bench/results/). Full write-up and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it with [`bench/parking-bench.ps1`](bench/parking-bench.ps1).
+Parking is real on a stock desktop, and the script makes idle threads wake up about 60 times sooner at the median. In CS2 the script's settings ran 0.34% slower than stock at the median when compared inside the same boot, slower in 6 of 8 boots, which 8 boots cannot tell apart from chance. With the script's settings, the 1% and 0.1% lows stayed within 1% of stock in every boot. Every run, the per-frame logs and the full table of seven states: [`bench/results`](bench/results/). Full write-up and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it with [`bench/parking-bench.ps1`](bench/parking-bench.ps1).
 
 ## Verify: Check If Your CPU Cores Are Parked
 
@@ -185,19 +185,18 @@ powercfg -restoredefaultschemes
 
 ## Side Effects
 
-- **Higher idle power** — not recommended on battery
-- **Higher temps** — monitor with [HWiNFO64](https://www.hwinfo.com/), keep under 85 °C
-- **More fan noise**
+- **Idle power and temperatures: not measured.** Microsoft notes that parking a core does not save power by itself and that the trade-off depends on the processor ([KB2814791](https://learn.microsoft.com/troubleshoot/windows-server/setup-upgrade-and-drivers/default-core-parking-behavior-changes)). EPP 0 asks the CPU to favor performance over energy, so idle power, temperatures and fan noise can go up.
+- **Battery:** the script sets the battery (DC) values too, so it is not recommended on a laptop running on battery.
 
 ## Compatibility
 
 | | Supported |
 |---|-----------|
-| **Intel** | 10th gen+ (12th+ for hybrid P/E-core support) |
+| **Intel** | 10th gen and newer (the P-core settings apply to hybrid chips with E-cores, 12th gen and newer) |
 | **AMD** | Ryzen 5000 / 7000 / 9000; **not recommended on X3D parts with V-Cache on one of two CCDs**, see below |
 | **Windows** | 10, 11, any display language |
 
-> **Ryzen 9 7900X3D / 7950X3D / 9900X3D / 9950X3D:** these chips carry 3D V-Cache on one of their two CCDs. When the Xbox Game Bar detects a game, Windows turns on Game Mode, and AMD's chipset driver then parks the standard CCD so the game stays on the V-Cache chiplet ([Tom's Hardware](https://www.tomshardware.com/reviews/amd-ryzen-9-7950x3d-cpu-review)). Unparking every core defeats that, and games can run slower. The script detects these CPUs and asks before continuing. Single-CCD X3D parts (7800X3D, 9800X3D) are unaffected. The 9950X3D2 has V-Cache on both CCDs, so unparking cannot move a game off the cache, and [TechPowerUp](https://www.techpowerup.com/review/amd-ryzen-9-9950x3d2-dual-edition/28.html) measured nearly the same gaming performance with all 16 cores active. The script only prints a note there.
+> **Ryzen 9 7900X3D / 7950X3D / 9900X3D / 9950X3D, and the laptop 7945HX3D / 9955HX3D:** these chips carry 3D V-Cache on one of their two CCDs. When the Xbox Game Bar detects a game, Windows turns on Game Mode, and AMD's chipset driver then parks the standard CCD so the game stays on the V-Cache chiplet ([Tom's Hardware](https://www.tomshardware.com/reviews/amd-ryzen-9-7950x3d-cpu-review)). Unparking every core defeats that, and games can run slower. The script detects these CPUs and asks before continuing. Single-CCD X3D parts, such as the 5800X3D, 7800X3D and 9800X3D, are unaffected. The 9950X3D2 has V-Cache on both CCDs, so unparking cannot move a game off the cache, and [TechPowerUp](https://www.techpowerup.com/review/amd-ryzen-9-9950x3d2-dual-edition/28.html) measured nearly the same gaming performance with all 16 cores active. The script only prints a note there.
 
 ## FAQ
 
@@ -208,10 +207,10 @@ A Windows power-management feature: the scheduler stops placing threads on some 
 Unparking means forcing Windows to keep every core active instead of parking idle ones. This script **unparks all CPU cores** by setting Core Parking Min Cores to 100%.
 
 ### Does disabling core parking increase FPS?
-Not in our tests. On an i9-14900F, stock Windows 11 parked 31 of 32 threads at idle, yet CS2 averaged 770 fps at stock and 769 fps after the script across 16 runs (8 per state), inside the run-to-run spread (see [Measured Impact](#measured-impact)). What the script does change is how fast idle threads wake up in a burst. We have not measured input lag.
+Not in our tests. On an i9-14900F, stock Windows 11 kept 29 to 30 of 32 threads parked at desktop idle, yet CS2 averaged 770 fps at stock and 769 fps after the script across 16 runs (8 per state), and inside the same boot the script's settings ran 0.34% slower at the median (see [Measured Impact](#measured-impact)). What the script does change is how fast idle threads wake up in a burst. We have not measured input lag.
 
 ### Is it safe to unpark CPU cores?
-Yes. It only changes power settings and writes an undo file first, so you can always roll back with `-Undo`. The trade-offs are higher idle power and temperatures (see [Side Effects](#side-effects)), not hardware risk — keep temps under ~85 °C.
+Yes. It only changes power settings and writes an undo file first, so you can always roll back with `-Undo`. The possible cost is higher idle power and temperatures, which we did not measure (see [Side Effects](#side-effects)), not hardware risk.
 
 ### Do the changes survive a reboot?
 Yes. The values are written into your active Windows power scheme, so they persist across reboots until you roll back (or a major Windows update resets power schemes).
@@ -220,13 +219,13 @@ Yes. The values are written into your active Windows power scheme, so they persi
 Run the script with `-Status`, or open **Resource Monitor** (Win+R → `resmon`) → **CPU** tab: parked cores are labeled **Parked**. See [Verify](#verify-check-if-your-cpu-cores-are-parked).
 
 ### I have a 7950X3D / 9950X3D — should I run this?
-Probably not on a 7900X3D, 7950X3D, 9900X3D or 9950X3D. In Game Mode, AMD's chipset driver parks the CCD without V-Cache so games stay on the cache; unparking everything lets game threads land on that CCD. See [Compatibility](#compatibility). If you have a specific reason (a workload that scales across both CCDs), the script asks for confirmation and `-Undo` puts it back. On a 9950X3D2 the script only prints a note.
+Probably not on a 7900X3D, 7950X3D, 9900X3D or 9950X3D, or the laptop 7945HX3D and 9955HX3D. In Game Mode, AMD's chipset driver parks the CCD without V-Cache so games stay on the cache; unparking everything lets game threads land on that CCD. See [Compatibility](#compatibility). If you have a specific reason (a workload that scales across both CCDs), the script asks for confirmation and `-Undo` puts it back. On a 9950X3D2 the script only prints a note.
 
 ### How is this different from ParkControl (Bitsum)?
 ParkControl is a GUI app; its free edition turns parking off per plan, and saving EPP changes needs ParkControl Pro. This is a zero-install, open-source PowerShell script that applies the core-parking and EPP tweak through `powercfg`, writes an undo file, and leaves **no background process** behind. Use whichever you prefer.
 
 ### How is this different from Quick CPU?
-Quick CPU (Coder Bag) is a closed-source GUI app for monitoring and tuning many CPU parameters, core parking among them. This script does one thing — unpark all cores and max out EPP — with no install, no background process, and readable source. If you only want core parking gone, this is the smaller hammer.
+Quick CPU (Coder Bag) is a GUI app for monitoring and tuning many CPU parameters, core parking among them. This script does one thing, unpark all cores and max out EPP, with no install, no background process, and readable source. If you only want core parking gone, this is the smaller hammer.
 
 ### Can I disable core parking through the registry (ValueMax method)?
 Registry guides that tell you to search for `0cc5b647-c1df-4637-891a-dec35c318583` and edit `ValueMax`/`Attributes` are manipulating the same **Core Parking Min Cores** setting this script changes. `powercfg` is the documented interface for it — same result, no manual registry surgery, plus an undo file.

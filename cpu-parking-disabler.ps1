@@ -41,10 +41,11 @@
     to 0 on the active power scheme, for AC and DC, and shows the parked-core
     count again so the effect is visible on screen.
 
-    Supports Intel 12th gen+ hybrid CPUs (separate P-core/E-core settings) and
-    non-hybrid CPUs (AMD Ryzen, older Intel), where Windows ignores the Class 1
-    (P-core) settings. X3D Ryzens with 3D V-Cache on one of their two CCDs
-    (7900X3D, 7950X3D, 9900X3D, 9950X3D) get a warning and a prompt first: in
+    Supports hybrid Intel CPUs with E-cores, 12th gen and newer (separate
+    P-core/E-core settings), and non-hybrid CPUs (AMD Ryzen, older Intel), where
+    Windows ignores the Class 1 (P-core) settings. X3D Ryzens with 3D V-Cache on
+    one of their two CCDs (7900X3D, 7950X3D, 9900X3D, 9950X3D, and the laptop
+    7945HX3D and 9955HX3D) get a warning and a prompt first: in
     Windows Game Mode, which the Xbox Game Bar turns on when it detects a game,
     AMD's chipset driver parks the other CCD so the game stays on the cache,
     and this tweak defeats that. The 9950X3D2, with 3D V-Cache on both CCDs,
@@ -447,7 +448,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     Write-Host (Format-ParkedCount $parkedAfter) -ForegroundColor $(if ($null -eq $parkedAfter) { 'Yellow' } elseif ($parkedAfter.Parked) { 'Red' } else { 'Green' })
     Write-Host ""
     Write-Host "Applied to power scheme '$($scheme.Name)':"
-    Write-Host "  - CPU parking: DISABLED (all cores always active)"
+    Write-Host "  - CPU parking: DISABLED (no core is parked)"
     Write-Host "  - EPP: 0 (max performance)"
     # DC is set too, so on a laptop the battery profile changes. A note, not a
     # prompt or a skip: an always-plugged-in gaming laptop may want exactly this.

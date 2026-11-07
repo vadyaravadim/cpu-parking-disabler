@@ -9,6 +9,17 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-07
+
+### Changed
+
+- Wording only, nothing the script does has changed. The summary at the end of a run now reads "CPU parking:
+  DISABLED (no core is parked)". It used to say "all cores always active", but an unparked core can still sit idle;
+  the script only stops Windows from parking it.
+- The help text now names the laptop Ryzen 9 7945HX3D and 9955HX3D among the X3D chips that get a warning and a
+  prompt, which the script already did, and describes the Intel P-core settings as applying to hybrid chips with
+  E-cores, 12th gen and newer.
+
 ## [1.3.1] - 2026-11-07
 
 ### Fixed
@@ -246,7 +257,8 @@ verbatim into the release and fails the release if the tag has no section here.
   newer for the hybrid path - and on AMD Ryzen 5000, 7000 and 9000. Nothing to install and no
   dependencies beyond what Windows already ships.
 
-[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.0...v1.2.1
