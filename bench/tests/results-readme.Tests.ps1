@@ -411,3 +411,56 @@ Describe 'README.md matches the parking-retest files' {
         $numbers | Should -Be @($stock.$_)
     }
 }
+
+Describe 'the published series carries no PC inventory' {
+    BeforeAll {
+        $script:recordFields = @{
+            '' = @('series', 'boot', 'stateIndex', 'state', 'load', 'capturedAt', 'bench', 'environment')
+            'bench' = @('exitCode', 'resultFile', 'files', 'log')
+            'environment' = @('cpu', 'bios', 'microcodeRaw', 'hvciEnabled', 'clockFlags', 'powerExplicit', 'drivers')
+            'environment.cpu' = @('name')
+            'environment.bios' = @('board', 'version')
+            'environment.drivers' = @('gpu', 'audio')
+            'environment.drivers.gpu' = @('device', 'version')
+            'environment.drivers.audio' = @('device', 'version', 'enumerator')
+        }
+        $script:journalFields = @{
+            'start' = @('at', 'event', 'boots', 'services', 'tasks', 'startup', 'noReboot')
+            'boot' = @('at', 'event', 'index', 'startedAt', 'endedAt', 'outcome', 'states', 'failedDir')
+            'boot.states' = @('index', 'kind', 'step', 'status', 'result')
+            'restored' = @('at', 'event', 'reason')
+            'restore-failed' = @('at', 'event', 'reason')
+            'cpu-observe' = @('at', 'event', 'boot', 'state', 'process', 'processCpuSeconds', 'unattributedCpuSeconds')
+            '*' = @('at', 'event')
+        }
+
+        function Get-UnlistedField($Node, [string]$At, [hashtable]$Spec, [string]$Key = $At) {
+            foreach ($name in $Node.PSObject.Properties.Name) {
+                $path = if ($At) { "$At.$name" } else { $name }
+                $specKey = if ($Key) { "$Key.$name" } else { $name }
+                if ($Spec[$Key] -notcontains $name) { $path; continue }
+                if ($Spec.ContainsKey($specKey)) {
+                    foreach ($item in @($Node.$name)) { if ($null -ne $item) { Get-UnlistedField $item $path $Spec $specKey } }
+                }
+            }
+        }
+    }
+
+    It 'keeps only the fields the tables need in every runner record' {
+        $extra = @(foreach ($run in $runs) { Get-UnlistedField $run.Record '' $recordFields | ForEach-Object { "$($run.File): $_" } })
+        $extra | Should -BeNullOrEmpty
+    }
+
+    It 'keeps only the HD Audio drivers in every runner record' {
+        $other = @($runs | ForEach-Object { @($_.Record.environment.drivers.audio) } | Where-Object { $_ -and $_.enumerator -ne 'HDAUDIO' })
+        $other | Should -BeNullOrEmpty
+    }
+
+    It 'keeps only outcomes and counts in journal.jsonl, no error text' {
+        $extra = @(foreach ($row in $journal) {
+                $kind = if ($journalFields.ContainsKey([string]$row.event)) { [string]$row.event } else { '*' }
+                Get-UnlistedField $row $kind $journalFields | ForEach-Object { "$($row.event): $_" }
+            })
+        $extra | Should -BeNullOrEmpty
+    }
+}

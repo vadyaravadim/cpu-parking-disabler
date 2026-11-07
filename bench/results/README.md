@@ -15,8 +15,8 @@ The idle checks of Windows' default power plans are in [`testbed-checks/`](testb
 - Intel Core i9-14900F (8 P-cores, 16 E-cores, 32 logical CPUs), MSI MAG B760M MORTAR II (BIOS 1.C0), AMD Radeon
   RX 7800 XT (driver 32.0.32015.7029), 180 Hz monitor.
 - Windows 11 26H2, build 26300.9818, Memory Integrity on. Each runner record keeps the CPU, board, BIOS, microcode,
-  Memory Integrity state, boot clock flags and GPU and audio drivers of its run. Each bench result keeps the OS build
-  and every processor power setting, and each game result the refresh rate.
+  Memory Integrity state, boot clock flags and GPU driver of its run. Each bench result keeps the OS build and every
+  processor power setting, and each game result the refresh rate.
 - Power plan: Balanced at Windows' default values. On this CPU those are a 4% core parking minimum for the E-cores
   (`CPMINCORES`, set by the processor profile Windows ships for Raptor Lake desktops), 0% for the P-cores
   (`CPMINCORES1`) and energy performance preference 33 (`PERFEPP`, `PERFEPP1`) on AC power, the last two being
@@ -123,16 +123,19 @@ after a 2 s `Thread.Sleep`, but the bench did not record the timer resolution.
 
 Names are `bootNN-stateNN-<test>`: the boot index (0 to 13) and the position inside that boot.
 
-- `bootNN-stateNN-<test>.json`: the runner's record of the step: the state applied, when it ran, the testbed's CPU,
-  board, BIOS, microcode, Memory Integrity state, boot clock flags and GPU and audio drivers, and the list of bench
-  files.
+- `bootNN-stateNN-<test>.json`: the runner's record of the step: the state applied, when it ran, the bench's exit code
+  and log, the testbed's CPU, board, BIOS, microcode, Memory Integrity state, boot clock flags and GPU driver, and the
+  list of bench files.
 - `bootNN-stateNN-<test>-bench.log`: the console output of the bench.
 - `parking-bench-bootNN-stateNN-burst.json` (+ `-work.csv`, `-wake.csv`): burst summary, work per 1 ms window, wake
   time of every thread.
 - `parking-bench-bootNN-stateNN-game.json` (+ `-parked.csv`): frame statistics, CS2 build, PresentMon lost-frame
   count, parked CPUs sampled during the run. The matching `-presentmon.csv` is in the release archive.
-- `journal.jsonl`: the runner's log of every boot, including the failed attempt below. `plan.json`: the full plan.
-- User names, the machine name and account IDs are removed from every file; profile paths read `%USERPROFILE%`.
+- `journal.jsonl`: the runner's log of the series: the counts of services and tasks switched off, then each boot's
+  start and end time, outcome and step results, including the failed attempt below. `plan.json`: the full plan.
+- Runner records and `journal.jsonl` keep only the fields named here, with no list of the PC's programs, processes,
+  services or other devices. User names, the machine name and account IDs appear in no file; profile paths read
+  `%USERPROFILE%`.
 
 ## Caveats
 
