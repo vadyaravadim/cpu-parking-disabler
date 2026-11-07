@@ -32,7 +32,7 @@ In scope:
 Out of scope:
 
 - Requiring admin rights, or the UAC prompt
-- Higher idle power draw and temperatures — documented in
+- Possibly higher idle power draw and temperatures, described in
   [Side Effects](README.md#side-effects)
 - Changes persisting across reboots — documented in the
   [FAQ](README.md#do-the-changes-survive-a-reboot), and reversible per
