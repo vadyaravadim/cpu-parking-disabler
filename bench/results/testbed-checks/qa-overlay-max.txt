@@ -1,0 +1,27 @@
+Power Scheme GUID: ded574b5-45a0-4f42-8737-46345c09c238  (Max Performance Overlay)
+  GUID Alias: OVERLAY_SCHEME_MAX
+  Subgroup GUID: 54533251-82be-4824-96c1-47b60b740d00  (Processor power management)
+    GUID Alias: SUB_PROCESSOR
+    Power Setting GUID: 36687f9e-e3a5-4dbf-b1dc-15eb381c6863  (Processor energy performance preference policy)
+      GUID Alias: PERFEPP
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000021
+    Current AC Power Setting Altitude: Provisioning
+    Current DC Power Setting Index: None
+    Current DC Power Setting Altitude: UNKNOWN
+
+    Power Setting GUID: 36687f9e-e3a5-4dbf-b1dc-15eb381c6864  (Processor energy performance preference policy for Processor Power Efficiency Class 1)
+      GUID Alias: PERFEPP1
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000021
+    Current AC Power Setting Altitude: Provisioning
+    Current DC Power Setting Index: None
+    Current DC Power Setting Altitude: UNKNOWN
+
+

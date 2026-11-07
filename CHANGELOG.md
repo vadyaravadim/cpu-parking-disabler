@@ -9,6 +9,18 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ## [Unreleased]
 
+### Fixed
+
+- `-Undo` froze Windows' defaults. It wrote every saved value back as your own setting, so a setting that had
+  been following Windows' default for your CPU stayed pinned to a copy of it. Undo now deletes the values the run
+  created and writes back only the ones you had set yourself. Undo files from 1.3.0 still work the old way.
+
+### Changed
+
+- On Ryzen X3D chips the note now says when AMD parks a CCD: in Windows Game Mode, which the Xbox Game Bar turns
+  on when it detects a game. The 9950X3D2, with 3D V-Cache on both CCDs, now gets a short note and no prompt. It
+  used to get the prompt and a note about a CCD without V-Cache, which it does not have.
+
 ## [1.3.0] - 2026-10-03
 
 ### Added

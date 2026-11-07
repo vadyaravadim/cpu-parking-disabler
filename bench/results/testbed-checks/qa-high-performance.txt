@@ -1,0 +1,174 @@
+Power Scheme GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c  (High performance)
+  GUID Alias: SCHEME_MIN
+  Subgroup GUID: 54533251-82be-4824-96c1-47b60b740d00  (Processor power management)
+    GUID Alias: SUB_PROCESSOR
+    Power Setting GUID: 0cc5b647-c1df-4637-891a-dec35c318583  (Processor performance core parking min cores)
+      GUID Alias: CPMINCORES
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000004
+    Current AC Power Setting Altitude: Provisioning
+    Current DC Power Setting Index: 0x00000004
+    Current DC Power Setting Altitude: Provisioning
+
+    Power Setting GUID: 0cc5b647-c1df-4637-891a-dec35c318584  (Processor performance core parking min cores for Processor Power Efficiency Class 1)
+      GUID Alias: CPMINCORES1
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000000
+    Current AC Power Setting Altitude: OS Default
+    Current DC Power Setting Index: 0x00000000
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: 36687f9e-e3a5-4dbf-b1dc-15eb381c6863  (Processor energy performance preference policy)
+      GUID Alias: PERFEPP
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000005
+    Current AC Power Setting Altitude: Provisioning
+    Current DC Power Setting Index: 0x00000000
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: 36687f9e-e3a5-4dbf-b1dc-15eb381c6864  (Processor energy performance preference policy for Processor Power Efficiency Class 1)
+      GUID Alias: PERFEPP1
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000005
+    Current AC Power Setting Altitude: Provisioning
+    Current DC Power Setting Index: 0x00000000
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: 5d76a2ca-e8c0-402f-a133-2158492d58ad  (Processor idle disable)
+      GUID Alias: IDLEDISABLE
+      Possible Setting Index: 000
+      Possible Setting Friendly Name: Enable idle
+      Possible Setting Index: 001
+      Possible Setting Friendly Name: Disable idle
+    Current AC Power Setting Index: 0x00000000
+    Current AC Power Setting Altitude: User
+    Current DC Power Setting Index: 0x00000000
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: 893dee8e-2bef-41e0-89c6-b55d0929964c  (Minimum processor state)
+      GUID Alias: PROCTHROTTLEMIN
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000064
+    Current AC Power Setting Altitude: OS Default
+    Current DC Power Setting Index: 0x00000005
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: 893dee8e-2bef-41e0-89c6-b55d0929964d  (Minimum processor state for Processor Power Efficiency Class 1)
+      GUID Alias: PROCTHROTTLEMIN1
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000064
+    Current AC Power Setting Altitude: OS Default
+    Current DC Power Setting Index: 0x00000005
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: 8baa4a8a-14c6-4451-8e8b-14bdbd197537  (Processor performance autonomous mode)
+      GUID Alias: PERFAUTONOMOUS
+      Possible Setting Index: 000
+      Possible Setting Friendly Name: Disabled
+      Possible Setting Index: 001
+      Possible Setting Friendly Name: Enabled
+    Current AC Power Setting Index: 0x00000001
+    Current AC Power Setting Altitude: Provisioning
+    Current DC Power Setting Index: 0x00000001
+    Current DC Power Setting Altitude: Provisioning
+
+    Power Setting GUID: 93b8b6dc-0698-4d1c-9ee4-0644e900c85d  (Heterogeneous thread scheduling policy)
+      GUID Alias: SCHEDPOLICY
+      Possible Setting Index: 000
+      Possible Setting Friendly Name: All processors
+      Possible Setting Index: 001
+      Possible Setting Friendly Name: Performant processors
+      Possible Setting Index: 002
+      Possible Setting Friendly Name: Prefer performant processors
+      Possible Setting Index: 003
+      Possible Setting Friendly Name: Efficient processors
+      Possible Setting Index: 004
+      Possible Setting Friendly Name: Prefer efficient processors
+      Possible Setting Index: 005
+      Possible Setting Friendly Name: Automatic
+    Current AC Power Setting Index: 0x00000005
+    Current AC Power Setting Altitude: OS Default
+    Current DC Power Setting Index: 0x00000005
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: bae08b81-2d5e-4688-ad6a-13243356654b  (Heterogeneous short running thread scheduling policy)
+      GUID Alias: SHORTSCHEDPOLICY
+      Possible Setting Index: 000
+      Possible Setting Friendly Name: All processors
+      Possible Setting Index: 001
+      Possible Setting Friendly Name: Performant processors
+      Possible Setting Index: 002
+      Possible Setting Friendly Name: Prefer performant processors
+      Possible Setting Index: 003
+      Possible Setting Friendly Name: Efficient processors
+      Possible Setting Index: 004
+      Possible Setting Friendly Name: Prefer efficient processors
+      Possible Setting Index: 005
+      Possible Setting Friendly Name: Automatic
+    Current AC Power Setting Index: 0x00000005
+    Current AC Power Setting Altitude: User
+    Current DC Power Setting Index: 0x00000005
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: bc5038f7-23e0-4960-96da-33abaf5935ec  (Maximum processor state)
+      GUID Alias: PROCTHROTTLEMAX
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000064
+    Current AC Power Setting Altitude: OS Default
+    Current DC Power Setting Index: 0x00000064
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: bc5038f7-23e0-4960-96da-33abaf5935ed  (Maximum processor state for Processor Power Efficiency Class 1)
+      GUID Alias: PROCTHROTTLEMAX1
+      Minimum Possible Setting: 0x00000000
+      Maximum Possible Setting: 0x00000064
+      Possible Settings increment: 0x00000001
+      Possible Settings units: %
+    Current AC Power Setting Index: 0x00000064
+    Current AC Power Setting Altitude: OS Default
+    Current DC Power Setting Index: 0x00000064
+    Current DC Power Setting Altitude: OS Default
+
+    Power Setting GUID: be337238-0d82-4146-a960-4f3749d470c7  (Processor performance boost mode)
+      GUID Alias: PERFBOOSTMODE
+      Possible Setting Index: 000
+      Possible Setting Friendly Name: Disabled
+      Possible Setting Index: 001
+      Possible Setting Friendly Name: Enabled
+      Possible Setting Index: 002
+      Possible Setting Friendly Name: Aggressive
+      Possible Setting Index: 003
+      Possible Setting Friendly Name: Efficient Enabled
+      Possible Setting Index: 004
+      Possible Setting Friendly Name: Efficient Aggressive
+      Possible Setting Index: 005
+      Possible Setting Friendly Name: Aggressive At Guaranteed
+      Possible Setting Index: 006
+      Possible Setting Friendly Name: Efficient Aggressive At Guaranteed
+    Current AC Power Setting Index: 0x00000002
+    Current AC Power Setting Altitude: OS Default
+    Current DC Power Setting Index: 0x00000002
+    Current DC Power Setting Altitude: OS Default
+
+

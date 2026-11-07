@@ -61,7 +61,7 @@ No parameters, no configuration. Run and done. Two optional switches:
 | Switch | What it does |
 |--------|--------------|
 | `-Status` | Show how many cores are parked right now and the four settings behind it. Changes nothing, needs no admin rights. |
-| `-Undo` | Put the values back the way they were before the last run. |
+| `-Undo` | Put back what the last run changed: your own values where you had set one, Windows' default for your CPU everywhere else. |
 
 How to pass a switch depends on how you got the script:
 
@@ -83,44 +83,14 @@ Calling `.\cpu-parking-disabler.ps1` directly only works if your execution polic
 
 That's it. No other settings are touched. Your current power scheme is modified in-place, for both AC and battery; on a laptop the run says so at the end. A second run on an already-tweaked machine changes nothing and writes no undo file.
 
-```
-CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads)
-Power scheme  : High performance
-Parked cores  : 24 of 32
-
-  Setting        AC   DC Target
-  CPMINCORES     25   25    100  -> (core parking min cores, E-cores / all cores)
-  CPMINCORES1    25   25    100  -> (core parking min cores, P-cores on hybrid CPUs)
-  PERFEPP        50   50      0  -> (energy performance preference, E-cores / all cores)
-  PERFEPP1       50   50      0  -> (energy performance preference, P-cores on hybrid CPUs)
-
-Undo file saved: C:\Users\you\cpu-parking-disabler\parking_undo_20260905_032754.json (revert with -Undo)
-
-Applying...
-  [OK ] CPMINCORES   AC  25 -> 100  DC  25 -> 100
-  [OK ] CPMINCORES1  AC  25 -> 100  DC  25 -> 100
-  [OK ] PERFEPP      AC  50 -> 0    DC  50 -> 0
-  [OK ] PERFEPP1     AC  50 -> 0    DC  50 -> 0
-
-Parked cores  : 24 of 32 -> 0 of 32
-```
-
-## Before & After
-
-| Before | After |
-|--------|-------|
-| ![Windows Resource Monitor showing several CPU cores Parked before running the script](assets/before.png) | ![All CPU cores unparked and Running after disabling core parking](assets/after.png) |
-
-> Cores marked **Parked** → all cores **Running**. Open Resource Monitor → CPU tab to verify on your system.
-
 ## Settings Changed
 
-| Setting | Description | Before | After |
+| Setting | Description | Before (our i9-14900F on Balanced, AC) | After |
 |---------|-------------|--------|-------|
-| `CPMINCORES` | Core Parking Min Cores (E-cores / all cores) | 10–50% | **100%** |
-| `CPMINCORES1` | Core Parking Min Cores (P-cores, hybrid CPUs) | 10–50% | **100%** |
-| `PERFEPP` | Energy Performance Preference (E-cores / all cores) | 50 | **0** |
-| `PERFEPP1` | Energy Performance Preference (P-cores, hybrid CPUs) | 50 | **0** |
+| `CPMINCORES` | Core Parking Min Cores (E-cores / all cores) | 4% | **100%** |
+| `CPMINCORES1` | Core Parking Min Cores (P-cores, hybrid CPUs) | 0% | **100%** |
+| `PERFEPP` | Energy Performance Preference (E-cores / all cores) | 33 | **0** |
+| `PERFEPP1` | Energy Performance Preference (P-cores, hybrid CPUs) | 33 | **0** |
 
 > `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings — they only matter on hybrid CPUs (Intel 12th gen+); on other CPUs Windows ignores them. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless.
 
@@ -130,15 +100,15 @@ Windows parks cores to save power: a parked core generally gets no threads, and 
 
 ## Measured Impact
 
-100 runs on an i9-14900F (8 P + 16 E cores, Windows 11 26H2) on the factory Balanced plan, which on this CPU lets Windows park down to 4% of cores. Every state ran in its own boots, 8 runs each (6 for the forced states), in Counter-Strike 2 (CPU-bound, PresentMon) and in a 32-thread burst test after 2 s of idle:
+100 runs on an i9-14900F (8 P + 16 E cores, Windows 11 26H2) on Windows' default Balanced plan, where this CPU's E-cores can park down to 4% and its P-cores down to 0%. Each boot ran every state of its block once, in a balanced order: 8 boots of the four normal states and 6 boots of the three forced ones, giving 8 runs per state (6 for the forced states) in Counter-Strike 2 (CPU-bound, PresentMon) and in a 32-thread burst test after 2 s of idle:
 
 | State | CS2 avg fps, median [range] | Parked at idle | Last thread of a burst awake after |
 |-------|-----------------------------|----------------|------------------------------------|
 | Stock | 770.0 [764.7-774.0] | 31 of 32 | 15.9 ms |
 | After this script (min cores 100%, EPP 0) | 769.0 [756.9-773.1] | 0 | 0.26 ms |
-| Parking forced (max cores 25%) | 783.5 [776.0-792.1] | 31 of 32 | 160 ms |
+| Parking forced (max cores 25%) | 783.6 [776.0-792.1] | 31 of 32 | 160 ms |
 
-Parking is real on a stock desktop, and the script makes idle threads wake up about 50 times sooner. In the game it changed nothing measurable: the difference sits inside the run-to-run spread, and the 1% and 0.1% lows match. Every run, the per-frame logs and the full table of seven states: [`bench/results`](bench/results/). Full write-up and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it with [`bench/parking-bench.ps1`](bench/parking-bench.ps1).
+Parking is real on a stock desktop, and the script makes idle threads wake up about 60 times sooner. In the game it changed nothing measurable: the difference sits inside the run-to-run spread, and the 1% and 0.1% lows match. Every run, the per-frame logs and the full table of seven states: [`bench/results`](bench/results/). Full write-up and the "check your own PC in 30 seconds" guide: **[the RigPolice deep dive](https://rigpolice.com/system/articles/disable-cpu-core-parking/?utm_source=github&utm_medium=readme&utm_campaign=cpu-parking-disabler)**. Reproduce it with [`bench/parking-bench.ps1`](bench/parking-bench.ps1).
 
 ## Verify: Check If Your CPU Cores Are Parked
 
@@ -154,9 +124,9 @@ Parking is real on a stock desktop, and the script makes idle threads wake up ab
 .\Run.bat -Undo
 ```
 
-([Other install methods](#quick-start) pass the switch differently.) Restores the values recorded in the newest `parking_undo_*.json` next to the script, to the power scheme they came from, and renames the file to `.applied.json`. Undo files are per-run snapshots: after several runs, run `-Undo` once per run, newest to oldest — only the oldest holds the original state.
+([Other install methods](#quick-start) pass the switch differently.) Puts back what the newest `parking_undo_*.json` recorded, on the power scheme it came from: a value you had set yourself is written back, and a setting that was following Windows' default goes back to that default. The file is then renamed to `.applied.json`. Undo files are per-run snapshots: after several runs, run `-Undo` once per run, newest to oldest — only the oldest holds the original state.
 
-**Full reset to Windows defaults** — simplest, but resets *all* power schemes:
+**Full reset to Windows defaults.** Simplest, but it resets *all* power schemes and deletes custom plans:
 ```powershell
 powercfg -restoredefaultschemes
 ```
@@ -172,10 +142,10 @@ powercfg -restoredefaultschemes
 | | Supported |
 |---|-----------|
 | **Intel** | 10th gen+ (12th+ for hybrid P/E-core support) |
-| **AMD** | Ryzen 5000 / 7000 / 9000 — **not recommended on dual-CCD X3D parts**, see below |
+| **AMD** | Ryzen 5000 / 7000 / 9000; **not recommended on X3D parts with V-Cache on one of two CCDs**, see below |
 | **Windows** | 10, 11, any display language |
 
-> **Ryzen 9 7900X3D / 7950X3D / 9900X3D / 9950X3D:** AMD's 3D V-Cache Performance Optimizer parks the non-V-Cache CCD during games *through core parking*, on purpose, so the game stays on the cache CCD. Unparking every core defeats that and games can run worse. The script detects these CPUs and asks before continuing. Single-CCD X3D parts (7800X3D, 9800X3D) are unaffected.
+> **Ryzen 9 7900X3D / 7950X3D / 9900X3D / 9950X3D:** these chips carry 3D V-Cache on one of their two CCDs. When the Xbox Game Bar detects a game, Windows turns on Game Mode, and AMD's chipset driver then parks the standard CCD so the game stays on the V-Cache chiplet ([Tom's Hardware](https://www.tomshardware.com/reviews/amd-ryzen-9-7950x3d-cpu-review)). Unparking every core defeats that, and games can run slower. The script detects these CPUs and asks before continuing. Single-CCD X3D parts (7800X3D, 9800X3D) are unaffected. The 9950X3D2 has V-Cache on both CCDs, so unparking cannot move a game off the cache, and [TechPowerUp](https://www.techpowerup.com/review/amd-ryzen-9-9950x3d2-dual-edition/28.html) measured nearly the same gaming performance with all 16 cores active. The script only prints a note there.
 
 ## FAQ
 
@@ -186,7 +156,7 @@ A Windows power-management feature: the scheduler stops placing threads on some 
 Unparking means forcing Windows to keep every core active instead of parking idle ones. This script **unparks all CPU cores** by setting Core Parking Min Cores to 100%.
 
 ### Does disabling core parking increase FPS?
-Not in our tests. On an i9-14900F, stock Windows 11 parked 31 of 32 threads at idle, yet CS2 averaged 770 fps at stock and 769 fps after the script across 50 runs, inside the run-to-run spread (see [Measured Impact](#measured-impact)). What the script does change is how fast idle threads wake up in a burst. We have not measured input lag.
+Not in our tests. On an i9-14900F, stock Windows 11 parked 31 of 32 threads at idle, yet CS2 averaged 770 fps at stock and 769 fps after the script across 16 runs (8 per state), inside the run-to-run spread (see [Measured Impact](#measured-impact)). What the script does change is how fast idle threads wake up in a burst. We have not measured input lag.
 
 ### Is it safe to unpark CPU cores?
 Yes. It only changes power settings and writes an undo file first, so you can always roll back with `-Undo`. The trade-offs are higher idle power and temperatures (see [Side Effects](#side-effects)), not hardware risk — keep temps under ~85 °C.
@@ -198,10 +168,10 @@ Yes. The values are written into your active Windows power scheme, so they persi
 Run the script with `-Status`, or open **Resource Monitor** (Win+R → `resmon`) → **CPU** tab: parked cores are labeled **Parked**. See [Verify](#verify-check-if-your-cpu-cores-are-parked).
 
 ### I have a 7950X3D / 9950X3D — should I run this?
-Probably not. On dual-CCD X3D chips AMD *uses* core parking to keep games on the V-Cache CCD; unparking everything lets threads land on the other CCD and costs performance in games. See [Compatibility](#compatibility). If you have a specific reason (a workload that scales across both CCDs), the script asks for confirmation and `-Undo` puts it back.
+Probably not on a 7900X3D, 7950X3D, 9900X3D or 9950X3D. In Game Mode, AMD's chipset driver parks the CCD without V-Cache so games stay on the cache; unparking everything lets game threads land on that CCD. See [Compatibility](#compatibility). If you have a specific reason (a workload that scales across both CCDs), the script asks for confirmation and `-Undo` puts it back. On a 9950X3D2 the script only prints a note.
 
 ### How is this different from ParkControl (Bitsum)?
-ParkControl is a GUI app. This is a zero-install, open-source PowerShell script that applies the same core-parking + EPP tweak directly via `powercfg`/registry, writes an undo file, and leaves **no background process** behind. Use whichever you prefer — this is the lightweight, transparent, scriptable option.
+ParkControl is a GUI app; its free edition turns parking off per plan, and saving EPP changes needs ParkControl Pro. This is a zero-install, open-source PowerShell script that applies the core-parking and EPP tweak through `powercfg`, writes an undo file, and leaves **no background process** behind. Use whichever you prefer.
 
 ### How is this different from Quick CPU?
 Quick CPU (Coder Bag) is a closed-source GUI app for monitoring and tuning many CPU parameters, core parking among them. This script does one thing — unpark all cores and max out EPP — with no install, no background process, and readable source. If you only want core parking gone, this is the smaller hammer.

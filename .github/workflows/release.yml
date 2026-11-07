@@ -7,15 +7,17 @@ permissions:
   id-token: write        # OIDC token for Sigstore signing (provenance)
   attestations: write    # persist the attestation
 jobs:
-  # The push-triggered lint / ascii-check runs on the tag do not block this
+  # The push-triggered lint / ascii-check / bench-tests runs on the tag do not block this
   # workflow, and a PowerShell Gallery version can never be re-published -
-  # so the same two gates run here and the release waits for them.
+  # so the same gates run here and the release waits for them.
   lint:
     uses: ./.github/workflows/lint.yml
   ascii-check:
     uses: ./.github/workflows/ascii-check.yml
+  bench-tests:
+    uses: ./.github/workflows/bench-tests.yml
   release:
-    needs: [lint, ascii-check]
+    needs: [lint, ascii-check, bench-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,7 +40,7 @@ jobs:
             echo "::error::CHANGELOG.md has no '## [$VER]' section - add one before tagging $GITHUB_REF_NAME."
             exit 1
           fi
-          PREV=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          PREV=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$GITHUB_REF_NAME^" 2>/dev/null || true)
           if [ -n "$PREV" ]; then
             printf '\n**Full Changelog**: %s/%s/compare/%s...%s\n' \
               "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PREV" "$GITHUB_REF_NAME" >> RELEASE_NOTES.md
