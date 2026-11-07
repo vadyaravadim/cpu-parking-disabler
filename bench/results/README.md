@@ -114,9 +114,10 @@ Names are `bootNN-stateNN-<test>`: the boot index (0 to 13) and the position ins
 
 ## Testbed checks
 
-[`testbed-checks/`](testbed-checks/) holds checks we ran on the same PC on 2026-11-07, to see what Windows' default
-Balanced and High performance plans do on this CPU. Neither plan had a user value for `CPMINCORES`, `CPMINCORES1`,
-`PERFEPP` or `PERFEPP1`. The PC ran everyday desktop apps during the checks, so they are not bench conditions: read the
+[`testbed-checks/`](testbed-checks/) holds checks we ran on the same PC on 2026-11-07: what Windows' default Balanced
+and High performance plans do on this CPU, and a run of the published script with its undo. The plan checks ran with
+no user value for `CPMINCORES`, `CPMINCORES1`, `PERFEPP` or `PERFEPP1` in either plan, and the script run started from
+Balanced in the same state. The PC ran everyday desktop apps during the checks, so they are not bench conditions: read the
 parked counts as a snapshot of normal idle, not as bench data. On this CPU High performance does not turn parking off.
 Windows gives it the same 4% minimum as Balanced, and at idle it parked 31 of 32 logical CPUs in our check.
 
@@ -134,3 +135,9 @@ Windows gives it the same 4% minimum as Balanced, and at idle it parked 31 of 32
   woke up.
 - `status-balanced-<n>.txt`, `status-high-performance-<n>.txt`: the output of `cpu-parking-disabler.ps1 -Status` after
   the samples of each plan in each round, from a development build of the script.
+- `sample-run.txt`: the run quoted in the main README. The published v1.3.1 one-liner, started from an admin terminal
+  on Balanced after 120 s of idle. The user folder is shown as `you`.
+- `sample-undo.txt`: `-Undo` of that run, from the saved copy of the script.
+- `undo-check.txt`: Balanced right after that undo. No user value is left for the four settings (`reg query`),
+  `CPMINCORES` reads 4 from `Provisioning` and the other three come from `OS Default` (`powercfg /qa`), and the
+  effective values are back to 4, 0, 33 and 33 on AC (`powercfg /qh`). The last part is `-Status` after 30 s of idle.

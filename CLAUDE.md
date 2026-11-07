@@ -124,9 +124,10 @@ effect. Frame time and ISR/DPC time are not input lag. The method lives in rigpo
 - **The companion article.** `src/content/articles/disable-cpu-core-parking.md` (the "How to disable it"
   section) quotes the `irm | iex` one-liner, describes what a run prints and explains the undo. A
   change to the one-liner URL, the run output or the undo mechanism updates that article in the same
-  pass. rigpolice's `src/lib/latency-toolbox.test.ts` reds on a one-liner that is not the release URL;
-  the README carries no output sample until it is recaptured, and the undo text has no gate, so check it
-  against this README's Rollback section by hand.
+  pass. rigpolice's `src/lib/latency-toolbox.test.ts` reds on a one-liner that is not the release URL and
+  on a sample run that is not on Balanced or keeps the undo file elsewhere. The README sample is a verbatim
+  capture in `bench/results/testbed-checks/`, pinned by `results-readme.Tests.ps1`; the article's copy of
+  it and its undo text are updated by hand, so check them against this README.
 - **The rest of the measured copy.** The intro and FAQ of `src/pages/system/latency-toolbox/index.astro`,
   `src/content/articles/bufferbloat-ping-spikes.md` and the FAQ of `src/content/categories/system.md` quote
   what this script measured; a change to `bench/results` updates them in the same pass.

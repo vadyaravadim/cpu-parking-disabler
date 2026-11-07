@@ -83,6 +83,58 @@ Calling `.\cpu-parking-disabler.ps1` directly only works if your execution polic
 
 That's it. No other settings are touched. Your current power scheme is modified in-place, for both AC and battery; on a laptop the run says so at the end. A second run on an already-tweaked machine changes nothing and writes no undo file.
 
+A full one-liner run on our i9-14900F on Windows' default Balanced plan, started from an admin terminal, so no new window opened (2026-11-07, also in [`bench/results/testbed-checks/sample-run.txt`](bench/results/testbed-checks/sample-run.txt)):
+
+```
+Script saved to: C:\Users\you\cpu-parking-disabler.ps1 (the undo file will be written next to it)
+
+===================================
+  CPU PARKING DISABLER v1.3.1
+===================================
+
+CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads)
+Power scheme  : Balanced
+Parked cores  : 25 of 32
+
+  Setting        AC   DC Target
+  CPMINCORES      4    4    100  -> (core parking min cores, E-cores / all cores)
+  CPMINCORES1     0    0    100  -> (core parking min cores, P-cores on hybrid CPUs)
+  PERFEPP        33   50      0  -> (energy performance preference, E-cores / all cores)
+  PERFEPP1       33   50      0  -> (energy performance preference, P-cores on hybrid CPUs)
+
+Undo file saved: C:\Users\you\parking_undo_20261107_171346.json (revert with -Undo)
+
+Applying...
+  [OK ] CPMINCORES   AC   4 -> 100  DC   4 -> 100
+  [OK ] CPMINCORES1  AC   0 -> 100  DC   0 -> 100
+  [OK ] PERFEPP      AC  33 -> 0    DC  50 -> 0
+  [OK ] PERFEPP1     AC  33 -> 0    DC  50 -> 0
+
+===================================
+  DONE
+===================================
+
+Parked cores  : 25 of 32 -> 0 of 32
+
+Applied to power scheme 'Balanced':
+  - CPU parking: DISABLED (all cores always active)
+  - EPP: 0 (max performance)
+
+Revert any time with: powershell -ExecutionPolicy Bypass -File "C:\Users\you\cpu-parking-disabler.ps1" -Undo
+
+Useful? A star on GitHub helps others find it: https://github.com/vadyaravadim/cpu-parking-disabler
+```
+
+## Before & After
+
+Resource Monitor, CPU tab, on the same PC: seconds before the run above and a minute after it (2026-11-07).
+
+| Before | After |
+|--------|-------|
+| ![Resource Monitor on the default Balanced plan: 28 of the 32 logical CPUs are marked Parked](assets/before.png) | ![The same view after the script: none of the 32 logical CPUs is marked Parked](assets/after.png) |
+
+> Open Resource Monitor → CPU tab to check your own PC: a parked logical CPU is marked **Parked**.
+
 ## Settings Changed
 
 | Setting | Description | Before (our i9-14900F on Balanced, AC) | After |
