@@ -172,7 +172,7 @@ Windows gives it the same 4% minimum as Balanced, and at idle it parked 31 of 32
   woke up.
 - `status-balanced-<n>.txt`, `status-high-performance-<n>.txt`: the output of `cpu-parking-disabler.ps1 -Status` after
   the samples of each plan in each round, from a development build of the script.
-- `sample-run.txt`: the run quoted in the main README. The published v1.3.1 one-liner, started from an admin terminal
+- `sample-run.txt`: the run quoted in the main README. The published v1.3.2 one-liner, started from an admin terminal
   on Balanced after 120 s of idle. The user folder is shown as `you`.
 - `sample-undo.txt`: `-Undo` of that run, from the saved copy of the script.
 - `undo-check.txt`: Balanced right after that undo. No user value is left for the four settings (`reg query`),

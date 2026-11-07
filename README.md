@@ -89,12 +89,12 @@ A full one-liner run on our i9-14900F on Windows' default Balanced plan, started
 Script saved to: C:\Users\you\cpu-parking-disabler.ps1 (the undo file will be written next to it)
 
 ===================================
-  CPU PARKING DISABLER v1.3.1
+  CPU PARKING DISABLER v1.3.2
 ===================================
 
 CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads)
 Power scheme  : Balanced
-Parked cores  : 25 of 32
+Parked cores  : 27 of 32
 
   Setting        AC   DC Target
   CPMINCORES      4    4    100  -> (core parking min cores, E-cores / all cores)
@@ -102,7 +102,7 @@ Parked cores  : 25 of 32
   PERFEPP        33   50      0  -> (energy performance preference, E-cores / all cores)
   PERFEPP1       33   50      0  -> (energy performance preference, P-cores on hybrid CPUs)
 
-Undo file saved: C:\Users\you\parking_undo_20261107_171346.json (revert with -Undo)
+Undo file saved: C:\Users\you\parking_undo_20261107_222735.json (revert with -Undo)
 
 Applying...
   [OK ] CPMINCORES   AC   4 -> 100  DC   4 -> 100
@@ -114,10 +114,10 @@ Applying...
   DONE
 ===================================
 
-Parked cores  : 25 of 32 -> 0 of 32
+Parked cores  : 27 of 32 -> 0 of 32
 
 Applied to power scheme 'Balanced':
-  - CPU parking: DISABLED (all cores always active)
+  - CPU parking: DISABLED (no core is parked)
   - EPP: 0 (max performance)
 
 Revert any time with: powershell -ExecutionPolicy Bypass -File "C:\Users\you\cpu-parking-disabler.ps1" -Undo
@@ -131,7 +131,7 @@ Resource Monitor, CPU tab, on the same PC: seconds before the run above and a mi
 
 | Before | After |
 |--------|-------|
-| ![Resource Monitor on the default Balanced plan: 28 of the 32 logical CPUs are marked Parked](assets/before.png) | ![The same view after the script: none of the 32 logical CPUs is marked Parked](assets/after.png) |
+| ![Resource Monitor on the default Balanced plan: 27 of the 32 logical CPUs are marked Parked](assets/before.png) | ![The same view after the script: none of the 32 logical CPUs is marked Parked](assets/after.png) |
 
 > Open Resource Monitor → CPU tab to check your own PC: a parked logical CPU is marked **Parked**.
 
