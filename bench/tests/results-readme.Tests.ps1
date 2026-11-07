@@ -2,6 +2,13 @@ BeforeAll {
     $script:seriesDir = Join-Path $PSScriptRoot '..\results\parking-retest'
     $script:resultsReadme = Get-Content -Path (Join-Path $PSScriptRoot '..\results\README.md') -Raw -Encoding UTF8
     $script:mainReadme = Get-Content -Path (Join-Path $PSScriptRoot '..\..\README.md') -Raw -Encoding UTF8
+    $script:sampleRun = Get-Content -Path (Join-Path $PSScriptRoot '..\results\testbed-checks\sample-run.txt') -Raw -Encoding UTF8
+
+    function Get-SampleRunBlock {
+        $blocks = @([regex]::Matches($mainReadme, '(?s)```[a-z]*\r?\n(.*?)```') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -match 'Power scheme\s+:' })
+        if ($blocks.Count -ne 1) { throw "README.md should hold one sample run block, found $($blocks.Count)" }
+        $blocks[0]
+    }
 
     function Get-StateName($Settings) {
         $parts = @()
@@ -131,6 +138,20 @@ Describe 'README.md matches the parking-retest files' {
         if ($mainReadme -match 'park down to \d+% of cores') {
             $stock.CPMINCORES1 | Should -Be $stock.CPMINCORES -Because 'README.md quotes a single parking minimum'
         }
+    }
+
+    It 'shows the sample run on the stock power plan of the series' {
+        Get-SampleRunBlock | Should -Match 'Power scheme\s+:\s+Balanced\s'
+    }
+
+    It 'shows the stock AC value of <_> in the sample run' -ForEach @('CPMINCORES', 'CPMINCORES1', 'PERFEPP', 'PERFEPP1') {
+        $m = [regex]::Match((Get-SampleRunBlock), "(?m)^\s+$_\s+(\d+)\s+(\d+)\s+\d+")
+        $m.Success | Should -BeTrue
+        [int]$m.Groups[1].Value | Should -Be $stock.$_
+    }
+
+    It 'the README sample run is the published capture, verbatim' {
+        ((Get-SampleRunBlock) -replace '\r\n', "`n").Trim() | Should -BeExactly (($sampleRun -replace '\r\n', "`n").Trim())
     }
 
     It 'lists the stock value of <_> in the Before column of Settings Changed' -ForEach @('CPMINCORES', 'CPMINCORES1', 'PERFEPP', 'PERFEPP1') {

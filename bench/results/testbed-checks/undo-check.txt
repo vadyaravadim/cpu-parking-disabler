@@ -1,0 +1,38 @@
+# Balanced after -Undo of the published v1.3.1 one-liner run (2026-11-07)
+
+## User values (reg query: a key with no value left prints only an empty line)
+> reg query HKLM\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\381b4222-f694-41f0-9685-ff5bb260df2e\54533251-82be-4824-96c1-47b60b740d00\0cc5b647-c1df-4637-891a-dec35c318583
+
+> reg query HKLM\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\381b4222-f694-41f0-9685-ff5bb260df2e\54533251-82be-4824-96c1-47b60b740d00\0cc5b647-c1df-4637-891a-dec35c318584
+
+> reg query HKLM\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\381b4222-f694-41f0-9685-ff5bb260df2e\54533251-82be-4824-96c1-47b60b740d00\36687f9e-e3a5-4dbf-b1dc-15eb381c6863
+
+> reg query HKLM\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\381b4222-f694-41f0-9685-ff5bb260df2e\54533251-82be-4824-96c1-47b60b740d00\36687f9e-e3a5-4dbf-b1dc-15eb381c6864
+
+
+## powercfg /qa altitudes
+CPMINCORES AC 4 (Provisioning) DC 4 (Provisioning)
+CPMINCORES1 AC 0 (OS Default) DC 0 (OS Default)
+PERFEPP AC 33 (OS Default) DC 50 (OS Default)
+PERFEPP1 AC 33 (OS Default) DC 50 (OS Default)
+
+## powercfg /qh effective AC/DC
+CPMINCORES 4/4
+CPMINCORES1 0/0
+PERFEPP 33/50
+PERFEPP1 33/50
+
+## -Status after 30 s idle
+===================================
+  CPU PARKING DISABLER v1.3.1
+===================================
+
+CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads)
+Power scheme  : Balanced
+Parked cores  : 30 of 32
+
+  Setting        AC   DC Target
+  CPMINCORES      4    4    100  -> (core parking min cores, E-cores / all cores)
+  CPMINCORES1     0    0    100  -> (core parking min cores, P-cores on hybrid CPUs)
+  PERFEPP        33   50      0  -> (energy performance preference, E-cores / all cores)
+  PERFEPP1       33   50      0  -> (energy performance preference, P-cores on hybrid CPUs)
