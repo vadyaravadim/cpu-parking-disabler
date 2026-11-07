@@ -27,6 +27,13 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   original. Files are per-run snapshots applied newest-to-oldest; only the oldest holds the original state.
 - **`-Undo` writes to the scheme GUID recorded in the file, not `SCHEME_CURRENT`.** The user may have
   switched schemes since; restoring Balanced's old values into High performance would be the wrong fix.
+- **`-Undo` deletes a value that had no explicit user value before the run (`UserAC`/`UserDC`), never
+  writes the effective one back: a written value freezes Windows' provisioning default.** The flags come from
+  `ACSettingIndex`/`DCSettingIndex` under `Power\User\PowerSchemes`; an undo file without them (1.3.0) is
+  written back as before.
+- **The run sits under `$MyInvocation.InvocationName -ne '.'`; tests dot-source the functions.** The
+  `irm | iex` bootstrap stays above the helpers, so a piped run defines nothing beyond it in the caller's
+  session.
 - **A piped run saves the script into the user profile, not `%TEMP%`.** The undo file is written next to
   the script, so it has to sit somewhere that survives automatic temp cleanup.
 - **`Get-ForwardedSwitchList` is the ONE place mode switches are listed.** Both relaunch paths - the
@@ -53,9 +60,9 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   burst thread ran on.** Without it a background burst can measure Windows QoS instead of parking: in the
   2026-11-04 series every burst after the first game of a boot did ~11 core-equivalents instead of ~25 in
   every power state. `coreClass` in the result shows where the threads actually ran.
-- **The dual-CCD X3D guard is `X3D` in the name AND `NumberOfCores -ge 12`.** AMD's 3D V-Cache Performance
-  Optimizer parks the non-V-Cache CCD during games through core parking; single-CCD parts (7800X3D,
-  9800X3D) have nothing to park and must not get the prompt.
+- **`Get-X3DParkingNote` owns the X3D rule: a 12+ core X3D with V-Cache on one CCD gets the prompt, an X3D2
+  a note only, a single-CCD part nothing.** In Game Mode AMD's chipset driver parks the CCD without V-Cache;
+  the X3D2 has V-Cache on both, so unparking cannot move a game off the cache.
 - **`-Status` skips elevation on purpose** - it only reads, and a UAC prompt for a read-only check is what
   makes people stop checking.
 
@@ -78,8 +85,9 @@ Nothing ships from a push to `main`.
 - **The `irm | iex` URL is `releases/latest/download/cpu-parking-disabler.ps1` - in the README AND in the
   script's bootstrap download, never `raw.githubusercontent.com/.../main`.** That is what keeps the
   sentence above true for the one-liner, and makes the saved copy byte-identical to the attested asset.
-- **`release.yml` calls `lint.yml` and `ascii-check.yml` through `workflow_call` and `needs:` both.** Their
-  push-triggered runs on the tag do not block the release, and a PSGallery version cannot be re-published.
+- **`release.yml` calls `lint.yml`, `ascii-check.yml` and `bench-tests.yml` (Pester over `tests` and
+  `bench/tests`) through `workflow_call` and `needs:` all three.** Their push-triggered runs on the tag do not
+  block the release, and a PSGallery version cannot be re-published.
 - **`v*` tags cannot be moved or deleted (tag ruleset) and releases are immutable (repo setting).** A broken
   release is fixed with a new patch tag, never by re-tagging.
 
@@ -117,4 +125,8 @@ effect. Frame time and ISR/DPC time are not input lag. The method lives in rigpo
   section) quotes the `irm | iex` one-liner, describes what a run prints and explains the undo. A
   change to the one-liner URL, the run output or the undo mechanism updates that article in the same
   pass. rigpolice's `src/lib/latency-toolbox.test.ts` reds on a one-liner that is not the release URL;
-  the output and the undo text have no gate, so check them against this README by hand.
+  the README carries no output sample until it is recaptured, and the undo text has no gate, so check it
+  against this README's Rollback section by hand.
+- **The rest of the measured copy.** The intro and FAQ of `src/pages/system/latency-toolbox/index.astro`,
+  `src/content/articles/bufferbloat-ping-spikes.md` and the FAQ of `src/content/categories/system.md` quote
+  what this script measured; a change to `bench/results` updates them in the same pass.

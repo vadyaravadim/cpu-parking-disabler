@@ -1,0 +1,16 @@
+
+===================================
+  CPU PARKING DISABLER dev build
+===================================
+
+CPU           : Intel(R) Core(TM) i9-14900F  (24 cores / 32 threads)
+Power scheme  : Balanced
+Parked cores  : 30 of 32
+
+  Setting        AC   DC Target
+  CPMINCORES      4    4    100  -> (core parking min cores, E-cores / all cores)
+  CPMINCORES1     0    0    100  -> (core parking min cores, P-cores on hybrid CPUs)
+  PERFEPP        33   50      0  -> (energy performance preference, E-cores / all cores)
+  PERFEPP1       33   50      0  -> (energy performance preference, P-cores on hybrid CPUs)
+
+

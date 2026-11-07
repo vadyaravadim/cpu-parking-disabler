@@ -9,6 +9,20 @@ verbatim into the release and fails the release if the tag has no section here.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-07
+
+### Fixed
+
+- `-Undo` froze Windows' defaults. It wrote every saved value back as your own setting, so a setting that had
+  been following Windows' default for your CPU stayed pinned to a copy of it. Undo now deletes the values the run
+  created and writes back only the ones you had set yourself. Undo files from 1.3.0 still work the old way.
+
+### Changed
+
+- On Ryzen X3D chips the note now says when AMD parks a CCD: in Windows Game Mode, which the Xbox Game Bar turns
+  on when it detects a game. The 9950X3D2, with 3D V-Cache on both CCDs, now gets a short note and no prompt. It
+  used to get the prompt and a note about a CCD without V-Cache, which it does not have.
+
 ## [1.3.0] - 2026-10-03
 
 ### Added
@@ -232,7 +246,8 @@ verbatim into the release and fails the release if the tag has no section here.
   newer for the hybrid path - and on AMD Ryzen 5000, 7000 and 9000. Nothing to install and no
   dependencies beyond what Windows already ships.
 
-[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.1.2...v1.2.0

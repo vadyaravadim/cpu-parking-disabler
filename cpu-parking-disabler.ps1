@@ -43,12 +43,16 @@
 
     Supports Intel 12th gen+ hybrid CPUs (separate P-core/E-core settings) and
     non-hybrid CPUs (AMD Ryzen, older Intel), where Windows ignores the Class 1
-    (P-core) settings. Dual-CCD X3D Ryzens (7900X3D,
-    7950X3D, 9900X3D, 9950X3D) get a warning first: AMD parks the non-V-Cache
-    CCD during games THROUGH core parking, and this tweak defeats that.
+    (P-core) settings. X3D Ryzens with 3D V-Cache on one of their two CCDs
+    (7900X3D, 7950X3D, 9900X3D, 9950X3D) get a warning and a prompt first: in
+    Windows Game Mode, which the Xbox Game Bar turns on when it detects a game,
+    AMD's chipset driver parks the other CCD so the game stays on the cache,
+    and this tweak defeats that. The 9950X3D2, with 3D V-Cache on both CCDs,
+    gets a note only.
 
     The previous values are written to parking_undo_<stamp>.json next to the
-    script before anything changes; -Undo puts them back. The script relaunches
+    script before anything changes; -Undo puts back the values you had set
+    yourself and returns the rest to Windows' default. The script relaunches
     itself as Administrator when needed.
 
 .PARAMETER Status
@@ -56,9 +60,11 @@
     Does not need Administrator rights.
 
 .PARAMETER Undo
-    Restore the values recorded by the newest parking_undo_*.json next to the
-    script. Files are per-run snapshots: after several runs, -Undo once per
-    run, newest to oldest - only the oldest holds the original state.
+    Put back what the newest parking_undo_*.json next to the script recorded:
+    a value you had set yourself is written back, and a setting that was
+    following Windows' default goes back to that default. Files are per-run
+    snapshots: after several runs, -Undo once per run, newest to oldest - only
+    the oldest holds the original state.
 
 .EXAMPLE
     .\cpu-parking-disabler.ps1
@@ -138,27 +144,6 @@ if (-not $PSCommandPath) {
     return
 }
 
-# Only now: under `irm | iex` the block above runs in the caller's own session,
-# where Stop would stay behind in their console after the script is done.
-$ErrorActionPreference = 'Stop'
-
-# ---- Everything below -Status writes power settings: Administrator required ----
-$principal = New-Object Security.Principal.WindowsPrincipal(
-    [Security.Principal.WindowsIdentity]::GetCurrent())
-if (-not $Status -and -not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Not running as Administrator. Requesting elevation..." -ForegroundColor Yellow
-    try {
-        $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass',
-                     '-File', "`"$PSCommandPath`"", '-Elevated') + (Get-ForwardedSwitchList)
-        Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -Verb RunAs
-    } catch {
-        # Not always a refusal (UAC service disabled, ...) - show the real cause.
-        Write-Host "ERROR: elevation failed ($($_.Exception.Message)). Run this script as Administrator." -ForegroundColor Red
-        Read-Host "Press Enter to close" | Out-Null
-    }
-    return
-}
-
 # ---- Helpers ----
 
 # powercfg reports failure by exit code and writes the reason to stderr. Under
@@ -183,19 +168,41 @@ function Get-PowerSettingValue([string]$Setting, [string]$Scheme = 'SCHEME_CURRE
     [pscustomobject]@{ AC = $hex[-2]; DC = $hex[-1] }
 }
 
-function Set-PowerSettingValue([string]$Setting, [int]$AC, [int]$DC, [string]$Scheme = 'SCHEME_CURRENT') {
+function Set-PowerSettingValue([string]$Setting, [Nullable[int]]$AC, [Nullable[int]]$DC, [string]$Scheme = 'SCHEME_CURRENT') {
     foreach ($call in @(@('/setacvalueindex', $AC), @('/setdcvalueindex', $DC))) {
+        if ($null -eq $call[1]) { continue }
         $r = Invoke-Powercfg @($call[0], $Scheme, 'SUB_PROCESSOR', $Setting, $call[1])
         if (-not $r.Ok) { throw "powercfg $($call[0]) $Setting failed: $($r.Text)" }
     }
 }
 
+$ProcessorSubgroup = '54533251-82be-4824-96c1-47b60b740d00'
+$UserPowerSchemesKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes'
+$UserIndexValue = @{ AC = 'ACSettingIndex'; DC = 'DCSettingIndex' }
+
 # A hidden processor setting can be ignored by the OS even after powercfg
 # writes it, so Attributes = 0 comes BEFORE any write. Idempotent; the
 # settings stay visible in Power Options afterwards, which is harmless.
-$PowerSettingsKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00'
+$PowerSettingsKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\$ProcessorSubgroup"
 function Show-PowerSetting([string]$Guid) {
     Set-ItemProperty -Path (Join-Path $PowerSettingsKey $Guid) -Name Attributes -Value 0 -Type DWord
+}
+
+function Get-UserPowerSettingKey([string]$Scheme, [string]$Guid) {
+    "$UserPowerSchemesKey\$Scheme\$ProcessorSubgroup\$Guid"
+}
+
+function Get-UserPowerSettingIndex([string]$Scheme, [string]$Guid) {
+    $item = Get-ItemProperty -LiteralPath (Get-UserPowerSettingKey $Scheme $Guid) -ErrorAction SilentlyContinue
+    [pscustomobject]@{ AC = $item.($UserIndexValue.AC); DC = $item.($UserIndexValue.DC) }
+}
+
+function Remove-UserPowerSettingIndex([string]$Scheme, [string]$Guid, [string]$Side) {
+    try {
+        Remove-ItemProperty -LiteralPath (Get-UserPowerSettingKey $Scheme $Guid) -Name $UserIndexValue[$Side] -ErrorAction Stop
+    } catch [System.Management.Automation.PSArgumentException], [System.Management.Automation.ItemNotFoundException] {
+        Write-Verbose "$($UserIndexValue[$Side]) of $Guid on $Scheme was already gone"
+    }
 }
 
 # Language-independent, unlike the '\Processor Information(*)\Parking Status'
@@ -223,6 +230,21 @@ function Get-ActiveScheme {
     }
 }
 
+function Get-X3DParkingNote([string]$Name, [int]$Cores) {
+    if ($Name -notmatch 'X3D' -or $Cores -lt 12) { return $null }
+    $cpuName = $Name.Trim()
+    if ($Name -match 'X3D2') {
+        return [pscustomobject]@{
+            Prompt = $false
+            Text   = "NOTE: $cpuName has 3D V-Cache on both CCDs, so keeping every core awake cannot move a game off the cache."
+        }
+    }
+    [pscustomobject]@{
+        Prompt = $true
+        Text   = "NOTE: $cpuName has 3D V-Cache on one of its two CCDs. In Windows Game Mode, which the Xbox Game Bar turns on when it detects a game, AMD's chipset driver parks the other CCD so the game stays on the cache. Keeping every core awake defeats that, and games can run slower."
+    }
+}
+
 # Rows are skipped when powercfg does not know the setting. Class 1 being
 # there says nothing about the CPU: Windows ships the efficiency-class
 # settings on every CPU and ignores them where there is no such class.
@@ -233,165 +255,210 @@ $settingDefs = @(
     [pscustomobject]@{ Name = 'PERFEPP1';    Guid = '36687f9e-e3a5-4dbf-b1dc-15eb381c6864'; Target = 0;   Label = 'energy performance preference, P-cores on hybrid CPUs' }
 )
 
-# Read from this file's own PSScriptInfo block - the one place the version
-# lives (release.yml stamps the tag into it). 0.0.0 is the committed
-# placeholder: a clone or ZIP of main, not a release.
-$version = [regex]::Match((Get-Content -LiteralPath $PSCommandPath -Raw), '(?m)^\.VERSION\s+(\S+)').Groups[1].Value
-$version = if ($version -eq '0.0.0') { 'dev build' } else { "v$version" }
-
-Write-Host ""
-Write-Host "===================================" -ForegroundColor Cyan
-Write-Host "  CPU PARKING DISABLER $version" -ForegroundColor Cyan
-Write-Host "===================================" -ForegroundColor Cyan
-Write-Host ""
-
-# ---- Undo mode ----
-if ($Undo) {
-    # Sort by the name stamp - LastWriteTime survives renames and can mislead.
-    $undoFile = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -notmatch '\.applied\.json$' } |
-        Sort-Object Name | Select-Object -Last 1
-    if (-not $undoFile) {
-        Write-Host "No parking_undo_*.json found next to the script - nothing to undo." -ForegroundColor Yellow
-        Wait-IfElevatedWindow; return
+function New-UndoSnapshot($Scheme, $Settings) {
+    [ordered]@{
+        Scheme     = $Scheme.Guid
+        SchemeName = $Scheme.Name
+        Values     = @(foreach ($s in $Settings) {
+            $user = Get-UserPowerSettingIndex $Scheme.Guid $s.Guid
+            [ordered]@{ Setting = $s.Name; AC = $s.AC; DC = $s.DC; UserAC = ($null -ne $user.AC); UserDC = ($null -ne $user.DC) }
+        })
     }
-    $snap = Get-Content -LiteralPath $undoFile.FullName -Raw | ConvertFrom-Json
-    Write-Host "Reverting: $($undoFile.Name)" -ForegroundColor Cyan
-    Write-Host "Power scheme  : $($snap.SchemeName) ($($snap.Scheme))"
-    # Written to the scheme that was changed, not whatever is active now - the
-    # user may have switched schemes since. Unhide first, as on apply: a major
-    # Windows update can hide the settings again.
-    foreach ($v in $snap.Values) {
-        Show-PowerSetting ($settingDefs | Where-Object Name -eq $v.Setting).Guid
-        Set-PowerSettingValue $v.Setting $v.AC $v.DC $snap.Scheme
-        Write-Host ("  [OK ] {0,-12} AC {1,3}  DC {2,3}" -f $v.Setting, $v.AC, $v.DC) -ForegroundColor Green
+}
+
+function Restore-UndoSnapshot($Snapshot) {
+    foreach ($v in $Snapshot.Values) {
+        $guid = ($settingDefs | Where-Object Name -eq $v.Setting).Guid
+        $flagged = $null -ne $v.PSObject.Properties['UserAC']
+        $write = @{}
+        $shown = @{}
+        foreach ($side in 'AC', 'DC') {
+            if (-not $flagged -or $v."User$side") {
+                $write[$side] = $v.$side
+                $shown[$side] = '{0,3}' -f $v.$side
+            } else {
+                $shown[$side] = 'Windows default'
+            }
+        }
+        Show-PowerSetting $guid
+        Set-PowerSettingValue $v.Setting $write.AC $write.DC $Snapshot.Scheme
+        foreach ($side in 'AC', 'DC') {
+            if (-not $write.ContainsKey($side)) { Remove-UserPowerSettingIndex $Snapshot.Scheme $guid $side }
+        }
+        Write-Host ("  [OK ] {0,-12} AC {1}  DC {2}" -f $v.Setting, $shown.AC, $shown.DC) -ForegroundColor Green
     }
     # Re-reads the active scheme so the restored values take effect right away.
     $r = Invoke-Powercfg @('/setactive', 'SCHEME_CURRENT')
     if (-not $r.Ok) { throw "powercfg /setactive failed: $($r.Text)" }
-    Rename-Item -LiteralPath $undoFile.FullName ($undoFile.FullName -replace '\.json$', '.applied.json')
-    if ((Get-ActiveScheme).Guid -ne $snap.Scheme) {
-        Write-Host "That scheme is not the active one - the restored values take effect when you switch back to it." -ForegroundColor Yellow
+}
+
+if ($MyInvocation.InvocationName -ne '.') {
+    # Only now: under `irm | iex` the block above runs in the caller's own session,
+    # where Stop would stay behind in their console after the script is done.
+    $ErrorActionPreference = 'Stop'
+
+    # ---- Everything below -Status writes power settings: Administrator required ----
+    $principal = New-Object Security.Principal.WindowsPrincipal(
+        [Security.Principal.WindowsIdentity]::GetCurrent())
+    if (-not $Status -and -not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host "Not running as Administrator. Requesting elevation..." -ForegroundColor Yellow
+        try {
+            $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass',
+                         '-File', "`"$PSCommandPath`"", '-Elevated') + (Get-ForwardedSwitchList)
+            Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -Verb RunAs
+        } catch {
+            # Not always a refusal (UAC service disabled, ...) - show the real cause.
+            Write-Host "ERROR: elevation failed ($($_.Exception.Message)). Run this script as Administrator." -ForegroundColor Red
+            Read-Host "Press Enter to close" | Out-Null
+        }
+        return
     }
-    $remaining = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -notmatch '\.applied\.json$' })
-    if ($remaining.Count) {
-        Write-Host "$($remaining.Count) older undo file(s) remain - run -Undo again to revert earlier runs." -ForegroundColor Yellow
-    }
-    # The kernel re-evaluates parking within a few hundred ms of the scheme change.
-    Start-Sleep -Milliseconds 1000
+
+    # Read from this file's own PSScriptInfo block - the one place the version
+    # lives (release.yml stamps the tag into it). 0.0.0 is the committed
+    # placeholder: a clone or ZIP of main, not a release.
+    $version = [regex]::Match((Get-Content -LiteralPath $PSCommandPath -Raw), '(?m)^\.VERSION\s+(\S+)').Groups[1].Value
+    $version = if ($version -eq '0.0.0') { 'dev build' } else { "v$version" }
+
     Write-Host ""
-    Write-Host "Parked cores  : $(Format-ParkedCount (Get-ParkedCoreCount))"
-    Write-Host "Done." -ForegroundColor Green
-    Wait-IfElevatedWindow; return
-}
-
-# ---- Current state ----
-$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-$scheme = Get-ActiveScheme
-$parkedBefore = Get-ParkedCoreCount
-$settings = @(foreach ($d in $settingDefs) {
-    $v = Get-PowerSettingValue $d.Name
-    if ($null -ne $v) {
-        $d | Add-Member NoteProperty AC $v.AC -PassThru | Add-Member NoteProperty DC $v.DC -PassThru |
-            Add-Member NoteProperty Ok (($v.AC -eq $d.Target) -and ($v.DC -eq $d.Target)) -PassThru
-    }
-})
-# Dual-CCD X3D parts: AMD's 3D V-Cache Performance Optimizer parks the
-# non-V-Cache CCD during games THROUGH core parking. Single-CCD X3D parts
-# (7800X3D, 9800X3D) have nothing to park and are not affected.
-$dualCcdX3D = ($cpu.Name -match 'X3D') -and ($cpu.NumberOfCores -ge 12)
-
-$parkedColor = if ($null -eq $parkedBefore) { 'Yellow' } elseif ($parkedBefore.Parked) { 'Red' } else { 'Green' }
-Write-Host ("CPU           : {0}  ({1} cores / {2} threads)" -f $cpu.Name.Trim(), $cpu.NumberOfCores, $cpu.NumberOfLogicalProcessors)
-Write-Host "Power scheme  : $($scheme.Name)"
-Write-Host "Parked cores  : " -NoNewline
-Write-Host (Format-ParkedCount $parkedBefore) -ForegroundColor $parkedColor
-Write-Host ""
-Write-Host ("  {0,-12} {1,4} {2,4} {3,6}" -f 'Setting', 'AC', 'DC', 'Target') -ForegroundColor DarkGray
-foreach ($s in $settings) {
-    $mark = if ($s.Ok) { 'ok' } else { '->' }
-    Write-Host ("  {0,-12} {1,4} {2,4} {3,6}  {4} ({5})" -f $s.Name, $s.AC, $s.DC, $s.Target, $mark, $s.Label) -ForegroundColor $(if ($s.Ok) { 'DarkGray' } else { 'Yellow' })
-}
-Write-Host ""
-if ($dualCcdX3D) {
-    Write-Host "NOTE: $($cpu.Name.Trim()) is a dual-CCD X3D part. AMD parks the non-V-Cache CCD during games through core parking on purpose - keeping every core awake defeats that, and games can run worse, not better." -ForegroundColor Yellow
+    Write-Host "===================================" -ForegroundColor Cyan
+    Write-Host "  CPU PARKING DISABLER $version" -ForegroundColor Cyan
+    Write-Host "===================================" -ForegroundColor Cyan
     Write-Host ""
-}
 
-if ($Status) { Wait-IfElevatedWindow; return }
-
-if ($dualCcdX3D) {
-    $answer = Read-Host "Continue anyway? [y/N]"
-    if ($answer -notmatch '^y') {
-        Write-Host "Nothing changed." -ForegroundColor Green
+    # ---- Undo mode ----
+    if ($Undo) {
+        # Sort by the name stamp - LastWriteTime survives renames and can mislead.
+        $undoFile = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '\.applied\.json$' } |
+            Sort-Object Name | Select-Object -Last 1
+        if (-not $undoFile) {
+            Write-Host "No parking_undo_*.json found next to the script - nothing to undo." -ForegroundColor Yellow
+            Wait-IfElevatedWindow; return
+        }
+        $snap = Get-Content -LiteralPath $undoFile.FullName -Raw | ConvertFrom-Json
+        Write-Host "Reverting: $($undoFile.Name)" -ForegroundColor Cyan
+        Write-Host "Power scheme  : $($snap.SchemeName) ($($snap.Scheme))"
+        # Written to the scheme that was changed, not whatever is active now - the
+        # user may have switched schemes since. Unhide first, as on apply: a major
+        # Windows update can hide the settings again.
+        Restore-UndoSnapshot $snap
+        Rename-Item -LiteralPath $undoFile.FullName ($undoFile.FullName -replace '\.json$', '.applied.json')
+        if ((Get-ActiveScheme).Guid -ne $snap.Scheme) {
+            Write-Host "That scheme is not the active one - the restored values take effect when you switch back to it." -ForegroundColor Yellow
+        }
+        $remaining = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '\.applied\.json$' })
+        if ($remaining.Count) {
+            Write-Host "$($remaining.Count) older undo file(s) remain - run -Undo again to revert earlier runs." -ForegroundColor Yellow
+        }
+        # The kernel re-evaluates parking within a few hundred ms of the scheme change.
+        Start-Sleep -Milliseconds 1000
+        Write-Host ""
+        Write-Host "Parked cores  : $(Format-ParkedCount (Get-ParkedCoreCount))"
+        Write-Host "Done." -ForegroundColor Green
         Wait-IfElevatedWindow; return
     }
+
+    # ---- Current state ----
+    $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+    $scheme = Get-ActiveScheme
+    $parkedBefore = Get-ParkedCoreCount
+    $settings = @(foreach ($d in $settingDefs) {
+        $v = Get-PowerSettingValue $d.Name
+        if ($null -ne $v) {
+            $d | Add-Member NoteProperty AC $v.AC -PassThru | Add-Member NoteProperty DC $v.DC -PassThru |
+                Add-Member NoteProperty Ok (($v.AC -eq $d.Target) -and ($v.DC -eq $d.Target)) -PassThru
+        }
+    })
+    $x3dNote = Get-X3DParkingNote $cpu.Name $cpu.NumberOfCores
+
+    $parkedColor = if ($null -eq $parkedBefore) { 'Yellow' } elseif ($parkedBefore.Parked) { 'Red' } else { 'Green' }
+    Write-Host ("CPU           : {0}  ({1} cores / {2} threads)" -f $cpu.Name.Trim(), $cpu.NumberOfCores, $cpu.NumberOfLogicalProcessors)
+    Write-Host "Power scheme  : $($scheme.Name)"
+    Write-Host "Parked cores  : " -NoNewline
+    Write-Host (Format-ParkedCount $parkedBefore) -ForegroundColor $parkedColor
     Write-Host ""
-}
+    Write-Host ("  {0,-12} {1,4} {2,4} {3,6}" -f 'Setting', 'AC', 'DC', 'Target') -ForegroundColor DarkGray
+    foreach ($s in $settings) {
+        $mark = if ($s.Ok) { 'ok' } else { '->' }
+        Write-Host ("  {0,-12} {1,4} {2,4} {3,6}  {4} ({5})" -f $s.Name, $s.AC, $s.DC, $s.Target, $mark, $s.Label) -ForegroundColor $(if ($s.Ok) { 'DarkGray' } else { 'Yellow' })
+    }
+    Write-Host ""
+    if ($x3dNote) {
+        Write-Host $x3dNote.Text -ForegroundColor Yellow
+        Write-Host ""
+    }
 
-# Nothing to change -> no undo file: a repeat-run snapshot would record the
-# already-tweaked state, and the next -Undo would "revert" to it instead of
-# the original.
-if (-not ($settings | Where-Object { -not $_.Ok })) {
-    Write-Host "All values already at target - nothing to do, no undo file written." -ForegroundColor Green
+    if ($Status) { Wait-IfElevatedWindow; return }
+
+    if ($x3dNote.Prompt) {
+        $answer = Read-Host "Continue anyway? [y/N]"
+        if ($answer -notmatch '^y') {
+            Write-Host "Nothing changed." -ForegroundColor Green
+            Wait-IfElevatedWindow; return
+        }
+        Write-Host ""
+    }
+
+    # Nothing to change -> no undo file: a repeat-run snapshot would record the
+    # already-tweaked state, and the next -Undo would "revert" to it instead of
+    # the original.
+    if (-not ($settings | Where-Object { -not $_.Ok })) {
+        Write-Host "All values already at target - nothing to do, no undo file written." -ForegroundColor Green
+        Wait-IfElevatedWindow
+        return
+    }
+
+    # ---- Undo file: the CURRENT values of every setting, BEFORE changing anything ----
+    # The suffix loop keeps two runs within the same second from clobbering
+    # each other's undo file.
+    $base = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $stamp = $base
+    $n = 1
+    while (Test-Path -LiteralPath (Join-Path $PSScriptRoot "parking_undo_$stamp.json")) { $stamp = '{0}_{1}' -f $base, $n++ }
+    $undoPath = Join-Path $PSScriptRoot "parking_undo_$stamp.json"
+    ConvertTo-Json (New-UndoSnapshot $scheme $settings) -Depth 4 | Set-Content -LiteralPath $undoPath -Encoding UTF8
+    Write-Host "Undo file saved: $undoPath (revert with -Undo)" -ForegroundColor Cyan
+    Write-Host ""
+
+    # ---- Apply ----
+    Write-Host "Applying..."
+    foreach ($s in $settings) {
+        Show-PowerSetting $s.Guid
+        Set-PowerSettingValue $s.Name $s.Target $s.Target
+        Write-Host ("  [OK ] {0,-12} AC {1,3} -> {2,-3}  DC {3,3} -> {4}" -f $s.Name, $s.AC, $s.Target, $s.DC, $s.Target) -ForegroundColor Green
+    }
+    $r = Invoke-Powercfg @('/setactive', 'SCHEME_CURRENT')
+    if (-not $r.Ok) { throw "powercfg /setactive failed: $($r.Text)" }
+
+    # The kernel re-evaluates parking within a few hundred ms of the scheme change.
+    Start-Sleep -Milliseconds 1000
+    $parkedAfter = Get-ParkedCoreCount
+
+    Write-Host ""
+    Write-Host "===================================" -ForegroundColor Cyan
+    Write-Host "  DONE" -ForegroundColor Cyan
+    Write-Host "===================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Parked cores  : " -NoNewline
+    Write-Host (Format-ParkedCount $parkedBefore) -ForegroundColor $parkedColor -NoNewline
+    Write-Host " -> " -NoNewline
+    Write-Host (Format-ParkedCount $parkedAfter) -ForegroundColor $(if ($null -eq $parkedAfter) { 'Yellow' } elseif ($parkedAfter.Parked) { 'Red' } else { 'Green' })
+    Write-Host ""
+    Write-Host "Applied to power scheme '$($scheme.Name)':"
+    Write-Host "  - CPU parking: DISABLED (all cores always active)"
+    Write-Host "  - EPP: 0 (max performance)"
+    # DC is set too, so on a laptop the battery profile changes. A note, not a
+    # prompt or a skip: an always-plugged-in gaming laptop may want exactly this.
+    if (Get-CimInstance Win32_Battery) {
+        Write-Host "  - Battery profile too: this laptop will drain faster and run warmer unplugged" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    # Full path and -ExecutionPolicy Bypass: this window usually sits in System32
+    # (elevated relaunch), and a bare .\script.ps1 is blocked by the default policy.
+    Write-Host "Revert any time with: powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Undo" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "Useful? A star on GitHub helps others find it: https://github.com/vadyaravadim/cpu-parking-disabler"
     Wait-IfElevatedWindow
-    return
 }
-
-# ---- Undo file: the CURRENT values of every setting, BEFORE changing anything ----
-# The suffix loop keeps two runs within the same second from clobbering
-# each other's undo file.
-$base = Get-Date -Format 'yyyyMMdd_HHmmss'
-$stamp = $base
-$n = 1
-while (Test-Path -LiteralPath (Join-Path $PSScriptRoot "parking_undo_$stamp.json")) { $stamp = '{0}_{1}' -f $base, $n++ }
-$undoPath = Join-Path $PSScriptRoot "parking_undo_$stamp.json"
-$snapshot = [ordered]@{
-    Scheme     = $scheme.Guid
-    SchemeName = $scheme.Name
-    Values     = @(foreach ($s in $settings) { [ordered]@{ Setting = $s.Name; AC = $s.AC; DC = $s.DC } })
-}
-ConvertTo-Json $snapshot -Depth 4 | Set-Content -LiteralPath $undoPath -Encoding UTF8
-Write-Host "Undo file saved: $undoPath (revert with -Undo)" -ForegroundColor Cyan
-Write-Host ""
-
-# ---- Apply ----
-Write-Host "Applying..."
-foreach ($s in $settings) {
-    Show-PowerSetting $s.Guid
-    Set-PowerSettingValue $s.Name $s.Target $s.Target
-    Write-Host ("  [OK ] {0,-12} AC {1,3} -> {2,-3}  DC {3,3} -> {4}" -f $s.Name, $s.AC, $s.Target, $s.DC, $s.Target) -ForegroundColor Green
-}
-$r = Invoke-Powercfg @('/setactive', 'SCHEME_CURRENT')
-if (-not $r.Ok) { throw "powercfg /setactive failed: $($r.Text)" }
-
-# The kernel re-evaluates parking within a few hundred ms of the scheme change.
-Start-Sleep -Milliseconds 1000
-$parkedAfter = Get-ParkedCoreCount
-
-Write-Host ""
-Write-Host "===================================" -ForegroundColor Cyan
-Write-Host "  DONE" -ForegroundColor Cyan
-Write-Host "===================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Parked cores  : " -NoNewline
-Write-Host (Format-ParkedCount $parkedBefore) -ForegroundColor $parkedColor -NoNewline
-Write-Host " -> " -NoNewline
-Write-Host (Format-ParkedCount $parkedAfter) -ForegroundColor $(if ($null -eq $parkedAfter) { 'Yellow' } elseif ($parkedAfter.Parked) { 'Red' } else { 'Green' })
-Write-Host ""
-Write-Host "Applied to power scheme '$($scheme.Name)':"
-Write-Host "  - CPU parking: DISABLED (all cores always active)"
-Write-Host "  - EPP: 0 (max performance)"
-# DC is set too, so on a laptop the battery profile changes. A note, not a
-# prompt or a skip: an always-plugged-in gaming laptop may want exactly this.
-if (Get-CimInstance Win32_Battery) {
-    Write-Host "  - Battery profile too: this laptop will drain faster and run warmer unplugged" -ForegroundColor Yellow
-}
-Write-Host ""
-# Full path and -ExecutionPolicy Bypass: this window usually sits in System32
-# (elevated relaunch), and a bare .\script.ps1 is blocked by the default policy.
-Write-Host "Revert any time with: powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Undo" -ForegroundColor DarkGray
-Write-Host ""
-Write-Host "Useful? A star on GitHub helps others find it: https://github.com/vadyaravadim/cpu-parking-disabler"
-Wait-IfElevatedWindow
