@@ -188,16 +188,24 @@ Describe 'bench/results/README.md matches the parking-retest files' {
         $nearExtreme = [Collections.Generic.List[string]]::new()
         foreach ($state in @('min', 'epp', 'min+epp')) {
             foreach ($metric in $sameBootMetrics) {
-                $lower = @(Get-SameBootGap 'stock' $state $metric.Gap | Where-Object { $_ -lt 0 }).Count
-                if ($lower -in 0, $n) { $extreme.Add(('`{0}` {1}' -f $state, $metric.Label)) }
-                if ($lower -eq 1) { $nearExtreme.Add(('`{0}` {1}, higher in {2} of {3} boots' -f $state, $metric.Label, ($n - 1), $n)) }
-                if ($lower -eq $n - 1) { $nearExtreme.Add(('`{0}` {1}, lower in {2} of {3} boots' -f $state, $metric.Label, ($n - 1), $n)) }
+                $gaps = @(Get-SameBootGap 'stock' $state $metric.Gap)
+                $lower = @($gaps | Where-Object { $_ -lt 0 }).Count
+                $higher = @($gaps | Where-Object { $_ -gt 0 }).Count
+                $differ = $lower + $higher
+                $side = [Math]::Max($lower, $higher)
+                if ($side -eq $n) { $extreme.Add(('`{0}` {1}' -f $state, $metric.Label)) }
+                elseif ($side -eq $differ - 1) {
+                    $words = if ($lower -gt $higher) { 'lower', 'higher' } else { 'higher', 'lower' }
+                    $level = if ($differ -lt $n) { ' and level in {0}' -f ($n - $differ) } else { '' }
+                    $nearExtreme.Add(('`{0}` {1} was {2} in {3} boots, {4} in 1{5}' -f $state, $metric.Label, $words[0], $side, $words[1], $level))
+                    $nearExtreme.Add(('chance splits the {0} boots that differ at least {1} to 1 about once in {2} tries' -f $differ, $side, [Math]::Round((Get-SplitOdds $differ $side))))
+                }
             }
         }
         $extreme.Count | Should -Be 1
         $flatResultsReadme.Contains(('only the {0} stands out' -f $extreme[0])) | Should -BeTrue
         foreach ($cell in $nearExtreme) {
-            $flatResultsReadme.Contains($cell) | Should -BeTrue -Because "bench/results/README.md should name the $($n - 1)-of-$n split '$cell'"
+            $flatResultsReadme.Contains($cell) | Should -BeTrue -Because "bench/results/README.md should name the near-extreme split '$cell'"
         }
     }
 

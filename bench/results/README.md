@@ -88,7 +88,8 @@ median of the 8 per-boot differences, and in how many boots the state came out l
 
 Lower ms is better. With 8 boots, chance alone puts 8 of 8 on one side about once in 128 tries, 7 or more of 8
 about once in 14 tries, and 6 or more of 8 more than once in 4 tries. So only the `min` 1% low stands out. The `epp`
-average fps, higher in 7 of 8 boots, is a weaker hint that chance would give about once in 14 tries.
+average fps was higher in 6 boots, lower in 1 and level in 1, and chance splits the 7 boots that differ at least 6 to
+1 about once in 8 tries, so it is only a hint.
 
 Burst test (medians across runs; parked counts are of 32 logical CPUs):
 
