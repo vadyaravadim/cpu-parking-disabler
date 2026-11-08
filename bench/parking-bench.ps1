@@ -51,7 +51,8 @@ param(
     [double]$BudgetMs = 6.944,
     [int]$Frames = 4300,
     [string]$Load,
-    [string]$PresentMon
+    [string]$PresentMon,
+    [int]$FpsMax = 0
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'bench-env.ps1')
@@ -86,6 +87,24 @@ public static class ParkBench {
     static int[] cpuNumber = new int[0];
 
     public static int[] CpuEfficiencyClass = new int[0];
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+
+    const uint KeyUpFlag = 0x0002;
+
+    public static bool IsForeground(IntPtr window) {
+        return window != IntPtr.Zero && GetForegroundWindow() == window;
+    }
+
+    public static void PressKey(byte vk, byte scan, int holdMs) {
+        keybd_event(vk, scan, 0, UIntPtr.Zero);
+        try { Thread.Sleep(holdMs); }
+        finally { keybd_event(vk, scan, KeyUpFlag, UIntPtr.Zero); }
+    }
 
     public static bool SetHighQos() {
         var state = new PowerThrottlingState { Version = 1, ControlMask = 1, StateMask = 0 };
@@ -401,7 +420,267 @@ function New-ParkCounter {
     New-Object ParkCounter -ArgumentList (, [string[]]$instances)
 }
 
+function Get-ParkingBenchConfig {
+    @{
+        TraceSession = 'rigpolice-ppm'
+        EtlPrefix = 'rigpolice-ppm-'
+        KppProvider = '{0F67E49F-FE51-4E9F-B490-6F2948CC6027}'
+        KppProviderName = 'Microsoft-Windows-Kernel-Processor-Power'
+        KppKeyword = '0x44'
+        KppLevel = 4
+        ProfileChangeEventId = 104
+        GameBarKey = 'HKCU:\Software\Microsoft\GameBar'
+        GameModeValue = 'AutoGameModeEnabled'
+        BuffersLostPattern = 'Buffers Lost\s*:\s*(\d+)'
+        CapTolerance = 0.02
+        SlowFrameFactor = 1.5
+        KeyHoldMs = 50
+        LogPollMs = 500
+    }
+}
+
+function Assert-FpsMaxArgument {
+    param([Parameter(Mandatory)][int]$FpsMax, [Parameter(Mandatory)][string]$Test)
+    if ($FpsMax -lt 0) { throw '-FpsMax must be 0 (off) or a positive frame rate.' }
+    if ($FpsMax -gt 0 -and $Test -ne 'game') { throw '-FpsMax only applies to -Test game.' }
+}
+
+function Get-CapPeriodMs {
+    param([Parameter(Mandatory)][int]$FpsMax)
+    (Get-BenchConfig).MsPerSecond / $FpsMax
+}
+
+function Assert-CapOffRefresh {
+    param([Parameter(Mandatory)][int]$FpsMax, [Parameter(Mandatory)][double]$RefreshHz)
+    if ($RefreshHz -le 0) { throw "The refresh rate of the monitor is unknown, so -FpsMax $FpsMax cannot be checked against it." }
+    $refreshPeriod = (Get-BenchConfig).MsPerSecond / $RefreshHz
+    $band = $refreshPeriod * (Get-BenchConfig).Limits.RefreshTolerance
+    if ([math]::Abs((Get-CapPeriodMs -FpsMax $FpsMax) - $refreshPeriod) -le $band) {
+        throw ([string]::Format([System.Globalization.CultureInfo]::InvariantCulture, '-FpsMax {0} is within {1:0.##}% of the {2:N1} Hz refresh period: the frame times would cluster at the refresh period and the run could not show a difference. Pick another rate.', $FpsMax, ((Get-BenchConfig).Limits.RefreshTolerance * 100), $RefreshHz))
+    }
+}
+
+function Get-CapSummary {
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Row, [Parameter(Mandatory)][int]$FpsMax)
+    $cfg = Get-ParkingBenchConfig
+    $period = Get-CapPeriodMs -FpsMax $FpsMax
+    $slow = @($Row | ForEach-Object { ConvertTo-FiniteDouble $_.MsBetweenPresents } | Where-Object { $_ -gt $period * $cfg.SlowFrameFactor }).Count
+    [pscustomobject][ordered]@{
+        fpsMax = $FpsMax
+        periodMs = [math]::Round($period, (Get-BenchConfig).Limits.Digits)
+        tolerance = $cfg.CapTolerance
+        slowFrameFactor = $cfg.SlowFrameFactor
+        slowFrames = $slow
+    }
+}
+
+function Get-CapRejection {
+    param([Parameter(Mandatory)]$Stats, [Parameter(Mandatory)][int]$FpsMax)
+    $cfg = Get-ParkingBenchConfig
+    $period = Get-CapPeriodMs -FpsMax $FpsMax
+    if ($Stats.p50Ms -ge $period * (1 - $cfg.CapTolerance) -and $Stats.p50Ms -le $period * (1 + $cfg.CapTolerance)) { return $null }
+    [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, 'the median frame time {0} ms is outside {1:0.##}% of the fps_max {2} period of {3:0.###} ms (the cap did not hold)', $Stats.p50Ms, ($cfg.CapTolerance * 100), $FpsMax, $period)
+}
+
+function ConvertFrom-PpmLossText {
+    param([AllowEmptyString()][string]$Text)
+    if ($Text -match (Get-ParkingBenchConfig).BuffersLostPattern) { [long]$Matches[1] }
+}
+
+function Start-PpmTrace {
+    param([Parameter(Mandatory)][string]$Etl)
+    $cfg = Get-ParkingBenchConfig
+    $traceSession = $cfg.TraceSession
+    Remove-Item -Path $Etl -ErrorAction SilentlyContinue
+    $started = & { $ErrorActionPreference = 'Continue'; & logman start $traceSession -p $cfg.KppProvider $cfg.KppKeyword "$($cfg.KppLevel)" -o $Etl -ets 2>&1 }
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cannot start the ETW session '$traceSession': $(($started | ForEach-Object { "$_" }) -join ' '). Another program holds that session. The bench never stops a session it did not start: close that program or reboot, then run the bench again."
+    }
+}
+
+function Stop-PpmTrace {
+    $traceSession = (Get-ParkingBenchConfig).TraceSession
+    $stopped = & { $ErrorActionPreference = 'Continue'; & logman stop $traceSession -ets 2>&1 }
+    if ($LASTEXITCODE -ne 0) { throw "Cannot stop the ETW session '$traceSession': $(($stopped | ForEach-Object { "$_" }) -join ' ')" }
+}
+
+function Get-PpmTraceLoss {
+    $traceSession = (Get-ParkingBenchConfig).TraceSession
+    $text = & { $ErrorActionPreference = 'Continue'; & logman query $traceSession -ets 2>&1 }
+    ConvertFrom-PpmLossText -Text (($text | ForEach-Object { "$_" }) -join "`n")
+}
+
+function Read-PpmEvent {
+    param([Parameter(Mandatory)][string]$Etl)
+    $cfg = Get-ParkingBenchConfig
+    $guid = $cfg.KppProvider.Trim('{}').ToLower()
+    $all = @()
+    try { $all = @(Get-WinEvent -Path $Etl -Oldest -ErrorAction Stop) } catch { if ($_.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*') { throw } }
+    @($all | Where-Object { $_.ProviderName -eq $cfg.KppProviderName -or "$($_.ProviderId)".ToLower() -eq $guid } | ForEach-Object {
+            [pscustomobject]@{ Id = [int]$_.Id; Time = $_.TimeCreated; Values = @($_.Properties | ForEach-Object { $_.Value }) }
+        })
+}
+
+function ConvertFrom-PpmEvent {
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Record,
+        [Parameter(Mandatory)][datetime]$Start,
+        [Parameter(Mandatory)][datetime]$End,
+        [AllowNull()]$StartedBeforeLoad,
+        [AllowNull()]$BuffersLost
+    )
+    $cfg = Get-ParkingBenchConfig
+    $digits = (Get-BenchConfig).Limits.Digits
+    $changes = @($Record | Where-Object { $_.Id -eq $cfg.ProfileChangeEventId } | Sort-Object -Property Time)
+    $list = @($changes | ForEach-Object {
+            [pscustomobject]@{ offsetSeconds = [math]::Round(($_.Time - $Start).TotalSeconds, $digits); from = [int]$_.Values[0]; to = [int]$_.Values[1] }
+        })
+    $inside = @($changes | Where-Object { $_.Time -gt $Start -and $_.Time -le $End }).Count
+    $before = @($changes | Where-Object { $_.Time -le $Start })
+    $activeProfile = $null
+    if ($inside -eq 0 -and $before.Count) { $activeProfile = [int]$before[-1].Values[1] }
+    [pscustomobject][ordered]@{
+        session = $cfg.TraceSession
+        keyword = $cfg.KppKeyword
+        startedBeforeLoad = $StartedBeforeLoad
+        buffersLost = $BuffersLost
+        profileChanges = $list
+        captureProfile = $activeProfile
+        captureChanges = $inside
+    }
+}
+
+function Open-BenchPpm {
+    param([Parameter(Mandatory)][string]$Etl, [string]$LoadProcess)
+    Start-PpmTrace -Etl $Etl
+    $startedBefore = $null
+    if ($LoadProcess) { $startedBefore = -not (Get-Process -Name $LoadProcess -ErrorAction SilentlyContinue) }
+    @{ etl = $Etl; on = $true; startedBeforeLoad = $startedBefore }
+}
+
+function Complete-BenchPpm {
+    param([Parameter(Mandatory)]$Trace, [Parameter(Mandatory)][datetime]$Start, [Parameter(Mandatory)][datetime]$End)
+    $loss = Get-PpmTraceLoss
+    Stop-PpmTrace
+    $Trace.on = $false
+    $events = @(Read-PpmEvent -Etl $Trace.etl)
+    ConvertFrom-PpmEvent -Record $events -Start $Start -End $End -StartedBeforeLoad $Trace.startedBeforeLoad -BuffersLost $loss
+}
+
+function Close-BenchPpm {
+    param([Parameter(Mandatory)]$Trace)
+    try {
+        if ($Trace.on) {
+            $Trace.on = $false
+            Stop-PpmTrace
+        }
+    } catch {
+        Write-Warning $_.Exception.Message
+    } finally {
+        Remove-Item -Path $Trace.etl -ErrorAction SilentlyContinue
+    }
+}
+
+function Wait-LogPattern {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Pattern,
+        [Parameter(Mandatory)]$Process,
+        [Parameter(Mandatory)][int]$From,
+        [Parameter(Mandatory)][double]$TimeoutSeconds
+    )
+    $pollMs = (Get-ParkingBenchConfig).LogPollMs
+    $clock = [System.Diagnostics.Stopwatch]::StartNew()
+    $seen = $From
+    while ($true) {
+        if ($Process.HasExited) { throw "The game exited before '$Pattern' appeared in its log." }
+        if (Test-Path -Path $Path) {
+            $text = Read-SharedText -Path $Path
+            if ($text.Length -lt $seen) { $From = 0 }
+            $seen = $text.Length
+            if ((Find-LogMarker -Text $text -Pattern $Pattern -From $From) -ge 0) { return $text.Length }
+        }
+        if ($clock.Elapsed.TotalSeconds -ge $TimeoutSeconds) { throw "'$Pattern' did not appear in $(Split-Path -Leaf $Path) within the load pause." }
+        Start-Sleep -Milliseconds $pollMs
+    }
+}
+
+function Test-CapForeground {
+    param([Parameter(Mandatory)]$Process)
+    $Process.Refresh()
+    [ParkBench]::IsForeground($Process.MainWindowHandle)
+}
+
+function Invoke-CapPress {
+    param([Parameter(Mandatory)]$Cap)
+    [ParkBench]::PressKey([byte]$Cap.virtualKey, [byte]$Cap.scanCode, (Get-ParkingBenchConfig).KeyHoldMs)
+}
+
+function Send-CapKey {
+    param([Parameter(Mandatory)]$Cap, [Parameter(Mandatory)]$Process)
+    if (-not (Test-CapForeground -Process $Process)) { throw "The game is not the foreground window, so the $($Cap.key) key was not sent. Keep the game in front during the run." }
+    Invoke-CapPress -Cap $Cap
+}
+
+function New-CaptureClock {
+    [System.Diagnostics.Stopwatch]::StartNew()
+}
+
+function Wait-GameCapture {
+    param([Parameter(Mandatory)]$Recipe, [int]$FpsMax = 0)
+    $proc = Wait-LoadStart -Recipe $Recipe
+    $clock = New-CaptureClock
+    $pause = $Recipe.timings.loadPauseSeconds
+    $logPath = $null
+    $pressOffset = $null
+    $pressedAfter = $null
+    if ($FpsMax -gt 0) {
+        $logPath = Get-LoadLogPath -Recipe $Recipe -Process $proc
+        $from = 0
+        if (Test-Path -Path $logPath) { $from = (Read-SharedText -Path $logPath).Length }
+        $timeout = [math]::Round($pause - $clock.Elapsed.TotalSeconds, (Get-BenchConfig).Limits.Digits)
+        $pressOffset = Wait-LogPattern -Path $logPath -Pattern $Recipe.cap.pressAfter -Process $proc -From $from -TimeoutSeconds $timeout
+        $pressedAfter = [math]::Round($clock.Elapsed.TotalSeconds, (Get-BenchConfig).Limits.Digits)
+        Send-CapKey -Cap $Recipe.cap -Process $proc
+    }
+    $remaining = $pause - $clock.Elapsed.TotalSeconds
+    Write-Host "Load started. Capturing in $([math]::Max(0, [math]::Round($remaining, 1))) s for $($Recipe.timings.captureSeconds) s. Do not touch the PC."
+    if ($remaining -gt 0) { Start-Sleep -Milliseconds ([int][math]::Round($remaining * (Get-BenchConfig).MsPerSecond)) }
+    [pscustomobject]@{ Process = $proc; LogPath = $logPath; PressOffset = $pressOffset; PressedAfterStartSeconds = $pressedAfter }
+}
+
+function Test-CapEcho {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Cap, [Parameter(Mandatory)][int]$From)
+    if (-not (Test-Path -Path $Path)) { return $false }
+    (Find-LogMarker -Text (Read-SharedText -Path $Path) -Pattern $Cap.echo -From $From) -ge 0
+}
+
+function Get-GameVerdict {
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Row,
+        [Parameter(Mandatory)]$Stats,
+        [Parameter(Mandatory)]$Capture,
+        $Video,
+        [Parameter(Mandatory)]$Recipe,
+        [int]$FpsMax = 0,
+        $GameCapture
+    )
+    $cap = $null
+    $capRejection = $null
+    if ($FpsMax -gt 0) {
+        $cap = Get-CapSummary -Row $Row -FpsMax $FpsMax
+        $cap | Add-Member -NotePropertyName pressedAfterStartSeconds -NotePropertyValue $GameCapture.PressedAfterStartSeconds
+        $cap | Add-Member -NotePropertyName echoSeen -NotePropertyValue (Test-CapEcho -Path $GameCapture.LogPath -Cap $Recipe.cap -From $GameCapture.PressOffset)
+        $capRejection = Get-CapRejection -Stats $Stats -FpsMax $FpsMax
+    }
+    [pscustomobject]@{
+        cap = $cap
+        rejected = Join-Rejection -Reason @((Get-GameRejection -Stats $Stats -Capture $Capture -Video $Video -Recipe $Recipe), $capRejection)
+    }
+}
+
 if ($MyInvocation.InvocationName -ne '.') {
+    Assert-FpsMaxArgument -FpsMax $FpsMax -Test $Test
     Add-Type -TypeDefinition $parkBenchSource
     $highQos = [ParkBench]::SetHighQos()
     if (-not $highQos) { Write-Warning 'Could not opt this process out of power throttling: Windows may run it as EcoQoS on efficient cores.' }
@@ -422,6 +701,8 @@ if ($MyInvocation.InvocationName -ne '.') {
     if (-not $counter) { Write-Warning 'Performance counters are unavailable: the parked count is not recorded.' }
     $result = [ordered]@{ test = $Test; phase = $Phase; highQos = $highQos }
     $files = New-Object System.Collections.Generic.List[string]
+    $ppmTrace = $null
+    $etl = Join-Path ([System.IO.Path]::GetTempPath()) ((Get-ParkingBenchConfig).EtlPrefix + "$Phase-$Test.etl")
 
     try {
         switch ($Test) {
@@ -431,7 +712,10 @@ if ($MyInvocation.InvocationName -ne '.') {
                 $chunk = [long][math]::Max(1000, $cfg.itersPerMs * $WindowMs / 50)
                 $metadata = Get-BenchMetadata -BenchScript $PSCommandPath
                 Write-Host "Burst: $threadCount threads, $Bursts bursts of $BurstMs ms after $IdleSeconds s idle. Do not touch the PC."
+                $ppmTrace = Open-BenchPpm -Etl $etl
+                $ppmStart = Get-Date
                 $r = [ParkBench]::Burst($threadCount, $chunk, $windows, $WindowMs, $Bursts, [int]($IdleSeconds * 1000), $counter)
+                $result.ppm = Complete-BenchPpm -Trace $ppmTrace -Start $ppmStart -End (Get-Date)
                 $workLines = for ($b = 0; $b -lt $Bursts; $b++) {
                     for ($w = 0; $w -lt $windows; $w++) { "$b,$(Format-Invariant ($w * $WindowMs)),$($r.Work[$b, $w]),$($r.ParkedBefore[$b])" }
                 }
@@ -456,8 +740,11 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
             'framesim' {
                 $metadata = Get-BenchMetadata -BenchScript $PSCommandPath
+                $ppmTrace = Open-BenchPpm -Etl $etl
                 if ($counter) { $counter.StartSampling(250) }
+                $ppmStart = Get-Date
                 $ft = [ParkBench]::FrameSim($Workers, $BudgetMs, [long]$cfg.workIters, $Frames)
+                $result.ppm = Complete-BenchPpm -Trace $ppmTrace -Start $ppmStart -End (Get-Date)
                 $parked = @()
                 if ($counter) {
                     $counter.StopSampling()
@@ -483,13 +770,23 @@ if ($MyInvocation.InvocationName -ne '.') {
                 if (-not $Load) { throw '-Test game needs -Load <name> (a file in bench\loads).' }
                 if (-not $PresentMon) { throw '-Test game needs -PresentMon <path to the pinned PresentMon exe>.' }
                 $recipe = Get-LoadRecipe -Name $Load
+                if ($FpsMax -gt 0) {
+                    if (-not $recipe.cap -or -not $recipe.startMarker) { throw "$Load.json has no cap recipe, so -FpsMax cannot be used with it." }
+                    Assert-CapOffRefresh -FpsMax $FpsMax -RefreshHz (Get-MonitorRefreshHz)
+                }
                 Write-Host "Load: $($recipe.title). Start it as bench\README.md says; this window waits."
+                if ($FpsMax -gt 0) { Write-Host "Cap line, type it before the console line: $($recipe.cap.consoleLine -f $recipe.cap.key, $recipe.cap.echo, $FpsMax)" }
                 if ($recipe.consoleLine) { Write-Host "Console line: $($recipe.consoleLine)" }
-                $proc = Wait-LoadReady -Recipe $recipe
+                $ppmTrace = Open-BenchPpm -Etl $etl -LoadProcess $recipe.process
+                $gameCapture = Wait-GameCapture -Recipe $recipe -FpsMax $FpsMax
+                $proc = $gameCapture.Process
+                $result.autoGameModeEnabled = Get-RegistryValue (Get-ParkingBenchConfig).GameBarKey (Get-ParkingBenchConfig).GameModeValue
                 $metadata = Get-BenchMetadata -BenchScript $PSCommandPath -Load $Load -PresentMonVersion $recipe.presentMon.version
                 $loadRecord = Get-LoadRecord -Recipe $recipe -Name $Load -Process $proc
                 if ($counter) { $counter.StartSampling(250) }
+                $ppmStart = Get-Date
                 $capture = Invoke-PresentMonCapture -PresentMonPath $PresentMon -ProcessName $recipe.presentMonProcess -OutputFile "$base-presentmon.csv" -Seconds $recipe.timings.captureSeconds -ExpectedSha256 $recipe.presentMon.sha256
+                $result.ppm = Complete-BenchPpm -Trace $ppmTrace -Start $ppmStart -End (Get-Date)
                 $files.Add("$base-presentmon.csv")
                 $parked = @()
                 if ($counter) {
@@ -497,15 +794,19 @@ if ($MyInvocation.InvocationName -ne '.') {
                     $parked = Write-ParkedSampleCsv -Counter $counter -Path "$base-parked.csv"
                     $files.Add("$base-parked.csv")
                 }
-                $stats = Import-Csv -Path $capture.csv | Get-FrameStats
+                $rows = @(Import-Csv -Path $capture.csv)
+                $stats = $rows | Get-FrameStats
                 $result.load = $loadRecord
                 $result.presentMon = [pscustomobject]@{ sha256 = $capture.presentMonSha256; overflowedPresents = $capture.overflowedPresents }
                 $result.frames = $stats
-                $result.rejected = Get-GameRejection -Stats $stats -Capture $capture -Video $loadRecord.videoConfig -Recipe $recipe
+                $verdict = Get-GameVerdict -Row $rows -Stats $stats -Capture $capture -Video $loadRecord.videoConfig -Recipe $recipe -FpsMax $FpsMax -GameCapture $gameCapture
+                $result.cap = $verdict.cap
+                $result.rejected = $verdict.rejected
                 $result.parkedDuringRun = Get-ParkedSummary -Values $parked -Total $logical
             }
         }
     } finally {
+        if ($ppmTrace) { Close-BenchPpm -Trace $ppmTrace }
         if ($counter) { $counter.Dispose() }
     }
 
