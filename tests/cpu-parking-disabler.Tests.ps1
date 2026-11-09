@@ -136,3 +136,11 @@ Describe '-Undo keeps Windows defaults that had no user value' {
         Should -Invoke Remove-ItemProperty -Times 0 -Exactly
     }
 }
+
+Describe 'PSScriptInfo version placeholder' {
+    It 'is exactly .VERSION 0.0.0, the line release.yml stamps' {
+        $lines = @(Select-String -LiteralPath $scriptPath -Pattern '^\.VERSION\b' | ForEach-Object Line)
+        $lines.Count | Should -Be 1
+        $lines[0] | Should -BeExactly '.VERSION 0.0.0'
+    }
+}

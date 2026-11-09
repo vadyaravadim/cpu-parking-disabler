@@ -12,8 +12,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run PSScriptAnalyzer
         shell: pwsh
+        env:
+          PSSA_VERSION: '1.25.0'
         run: |
-          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser
+          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
           $issues = Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
           $issues | Format-Table Severity, RuleName, ScriptName, Line, Message -AutoSize -Wrap
           foreach ($i in $issues) {
