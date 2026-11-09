@@ -316,8 +316,8 @@ if ($MyInvocation.InvocationName -ne '.') {
     }
 
     # Read from this file's own PSScriptInfo block - the one place the version
-    # lives (release.yml stamps the tag into it). 0.0.0 is the committed
-    # placeholder: a clone or ZIP of main, not a release.
+    # lives. 0.0.0 is the committed placeholder: a clone or ZIP of main, not a
+    # release.
     $version = [regex]::Match((Get-Content -LiteralPath $PSCommandPath -Raw), '(?m)^\.VERSION\s+(\S+)').Groups[1].Value
     $version = if ($version -eq '0.0.0') { 'dev build' } else { "v$version" }
 

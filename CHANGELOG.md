@@ -4,10 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Each released section below IS the GitHub Release body for that tag: `release.yml` copies the section
-verbatim into the release and fails the release if the tag has no section here.
+Each released section below IS the GitHub Release body for that version: `release.yml` releases the newest
+section, copies it verbatim into the release, and fails before anything is tagged or published if the
+section is empty or its compare link at the bottom is missing.
 
 ## [Unreleased]
+
+### Changed
+
+- Releases are tagged only after every check has passed on the commit they are built from, and the
+  PowerShell Gallery package always holds the same file as the GitHub release.
 
 ## [1.3.2] - 2026-11-07
 

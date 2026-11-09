@@ -1,15 +1,11 @@
 name: release
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
 permissions:
   contents: write        # create the release and upload assets
   id-token: write        # OIDC token for Sigstore signing (provenance)
   attestations: write    # persist the attestation
 jobs:
-  # The push-triggered lint / ascii-check / bench-tests runs on the tag do not block this
-  # workflow, and a PowerShell Gallery version can never be re-published -
-  # so the same gates run here and the release waits for them.
   lint:
     uses: ./.github/workflows/lint.yml
   ascii-check:
@@ -19,44 +15,71 @@ jobs:
   release:
     needs: [lint, ascii-check, bench-tests]
     runs-on: ubuntu-latest
+    env:
+      SCRIPT: cpu-parking-disabler.ps1
+      CHANGELOG: CHANGELOG.md
+      NOTES: RELEASE_NOTES.md
+      SUMS: SHA256SUMS.txt
+      TAG_PREFIX: v
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Release only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run the release from main, not $GITHUB_REF_NAME."
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # the previous tag, for the compare link in the notes
+      - name: Read the version from the newest CHANGELOG section
+        run: |
+          VERSION=$(awk '/^## \[/ && !/^## \[Unreleased\]/ { sub(/^## \[/, ""); sub(/\].*/, ""); print; exit }' "$CHANGELOG")
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The newest section of $CHANGELOG must be '## [X.Y.Z] - YYYY-MM-DD', got '[$VERSION]'."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG_PREFIX$VERSION" >> "$GITHUB_ENV"
+      - name: Check the version is not released yet
+        run: |
+          TAGGED=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}" || true)
+          if [ -n "$TAGGED" ] && [ "$TAGGED" != "$GITHUB_SHA" ]; then
+            echo "::error::$TAG already points at $TAGGED, not at $GITHUB_SHA. If $VERSION is released, add a new $CHANGELOG section; a hand-pushed tag burns the version - release the next one."
+            exit 1
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::error::$TAG already has a GitHub release. If it is a draft left by a cancelled run, delete it and re-run; otherwise add a new $CHANGELOG section."
+            exit 1
+          fi
       - name: Extract release notes from CHANGELOG
         # Release notes are hand-written on purpose. `--generate-notes` lists
         # merged PRs, and this repo lands nearly everything as direct commits to
-        # main, so it produced a body holding nothing but a compare link. This
-        # step is deliberately a GATE, not a fallback: a tag whose version has no
-        # CHANGELOG section fails the release instead of publishing empty notes.
+        # main, so it produced a body holding nothing but a compare link.
         run: |
-          VER="${GITHUB_REF_NAME#v}"
-          awk -v ver="$VER" '
+          awk -v ver="$VERSION" '
             index($0, "## [" ver "]") == 1 { f = 1; next }
             f && (/^## \[/ || /^\[[^]]+\]: /) { exit }
             f { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          if ! grep -q '[^[:space:]]' RELEASE_NOTES.md; then
-            echo "::error::CHANGELOG.md has no '## [$VER]' section - add one before tagging $GITHUB_REF_NAME."
+          ' "$CHANGELOG" > "$NOTES"
+          if ! grep -q '[^[:space:]]' "$NOTES"; then
+            echo "::error::The '## [$VERSION]' section of $CHANGELOG is empty."
             exit 1
           fi
-          PREV=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$GITHUB_REF_NAME^" 2>/dev/null || true)
-          if [ -n "$PREV" ]; then
-            printf '\n**Full Changelog**: %s/%s/compare/%s...%s\n' \
-              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PREV" "$GITHUB_REF_NAME" >> RELEASE_NOTES.md
+          PREV=$(git describe --tags --abbrev=0 --match "${TAG_PREFIX}[0-9]*" "$GITHUB_SHA^")
+          COMPARE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$PREV...$TAG"
+          if ! grep -qxF "[$VERSION]: $COMPARE" "$CHANGELOG"; then
+            echo "::error::$CHANGELOG has no '[$VERSION]: $COMPARE' link at the bottom."
+            exit 1
           fi
-      - name: Sync PSScriptInfo version to tag
-        # The tag is the single source of truth for the version. The .VERSION
-        # in the committed file is a placeholder; stamp the tag (minus the
-        # leading v) into it here so provenance, checksums, and the PSGallery
-        # package all describe the same version.
-        run: sed -i "s/^\.VERSION .*/.VERSION ${GITHUB_REF_NAME#v}/" cpu-parking-disabler.ps1
+          printf '\n**Full Changelog**: %s\n' "$COMPARE" >> "$NOTES"
+      - name: Stamp the version into PSScriptInfo
+        run: sed -i "s/^\.VERSION .*/.VERSION $VERSION/" "$SCRIPT"
       - name: Compute checksums
-        run: sha256sum cpu-parking-disabler.ps1 > SHA256SUMS.txt
+        run: sha256sum "$SCRIPT" > "$SUMS"
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: 'cpu-parking-disabler.ps1'
+          subject-path: ${{ env.SCRIPT }}
       - name: Publish to PowerShell Gallery
         # Before the GitHub release on purpose: the Gallery API key expires
         # (365 days at most) and this is the step that fails when it does. Failing
@@ -65,10 +88,10 @@ jobs:
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: Publish-Script -Path ./cpu-parking-disabler.ps1 -NuGetApiKey $env:NUGET_API_KEY
+        run: |
+          . ./.github/Publish-GalleryScript.ps1
+          Publish-GalleryScript -Path $env:SCRIPT -Version $env:VERSION -NuGetApiKey $env:NUGET_API_KEY
       - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
         # --title: without it the release has no name and GitHub shows the
         # tagged commit's subject next to the tag instead.
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md cpu-parking-disabler.ps1 SHA256SUMS.txt
+        run: gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file "$NOTES" "$SCRIPT" "$SUMS"
