@@ -76,27 +76,38 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   live in `PSScriptAnalyzerSettings.psd1` with the reason written next to each rule. Extend that file with
   a justification instead of adding an inline suppression attribute.
 
-## Release - the tag is the only source of truth
+## Release - the newest CHANGELOG section is the version
 
-`git tag vX.Y.Z && git push origin vX.Y.Z` runs `release.yml`, which stamps the tag into `.VERSION`, hashes
-the script, attests build provenance, creates the GitHub Release and publishes to the PowerShell Gallery.
-Nothing ships from a push to `main`.
+`gh workflow run release.yml` (or Actions > release > Run workflow) on `main` releases the newest
+`## [X.Y.Z]` section of `CHANGELOG.md`: it gates that commit, stamps the version into `.VERSION`, hashes the
+script, attests build provenance, publishes to the PowerShell Gallery and, last, creates the GitHub Release,
+which creates the `vX.Y.Z` tag at that commit. A run from any other branch fails in the release job before
+anything is written. Nothing ships from a push to `main`, and no tag exists until every gate has passed.
 
 - **The `irm | iex` URL is `releases/latest/download/cpu-parking-disabler.ps1` - in the README AND in the
   script's bootstrap download, never `raw.githubusercontent.com/.../main`.** That is what keeps the
   sentence above true for the one-liner, and makes the saved copy byte-identical to the attested asset.
 - **`release.yml` calls `lint.yml`, `ascii-check.yml` and `bench-tests.yml` (Pester over `tests` and
-  `bench/tests`) through `workflow_call` and `needs:` all three.** Their push-triggered runs on the tag do not
+  `bench/tests`) through `workflow_call` and `needs:` all three.** Their push-triggered runs on `main` do not
   block the release, and a PSGallery version cannot be re-published.
 - **`v*` tags cannot be moved or deleted (tag ruleset) and releases are immutable (repo setting).** A broken
-  release is fixed with a new patch tag, never by re-tagging.
+  release is fixed by releasing a new patch version (a new CHANGELOG section), never by re-tagging. The
+  ruleset leaves tag creation open on purpose: the release creates the tag with `GITHUB_TOKEN`.
+- **Never push a `v*` tag by hand.** It starts no release and cannot be deleted; unless it sits on the exact
+  commit the release then runs on, the release stops before publishing and that version is burned.
+- **Finish a failed release with "Re-run failed jobs" on that run, not a new run.** The re-run builds the
+  same commit: the Gallery step (`.github/Publish-GalleryScript.ps1`) skips a version already there with
+  identical bytes and fails on different bytes. A run cancelled during the GitHub Release step can leave a
+  draft - delete it before re-running. Release the next version instead only when that run is older than
+  30 days and can no longer be re-run.
 
-**Before tagging, move the `## [Unreleased]` bullets in `CHANGELOG.md` into a `## [X.Y.Z] - YYYY-MM-DD`
-section and add the compare link at the bottom.** The release job copies exactly that section into the
-release body and **fails the release when the tag's section is missing**. This is a gate on purpose, not a
-fallback: notes are hand-written because GitHub's `--generate-notes` lists merged PRs, and this repo lands
-nearly everything as direct commits to `main`, so it published releases whose whole body was a compare
-link.
+**Before releasing, move the `## [Unreleased]` bullets in `CHANGELOG.md` into a `## [X.Y.Z] - YYYY-MM-DD`
+section and add its `[X.Y.Z]: .../compare/vPREV...vX.Y.Z` link at the bottom.** That section is the
+version. The release job copies exactly that section into the release body and **fails before anything is
+tagged or published when it is empty or its compare link is missing**; a newest section that is already
+released fails the same way. This is a gate on purpose, not a fallback: notes are hand-written because
+GitHub's `--generate-notes` lists merged PRs, and this repo lands nearly everything as direct commits to
+`main`, so it published releases whose whole body was a compare link.
 
 Write the entries for someone who runs the tool, not for someone reading the diff: what changed on their
 machine and why it matters. A fix says what was broken and what it cost them.

@@ -56,5 +56,5 @@ file was built by this repository's `release.yml` from the tagged commit - check
 with the [GitHub CLI](https://cli.github.com/):
 
 ```powershell
-gh attestation verify .\cpu-parking-disabler.ps1 -R vadyaravadim/cpu-parking-disabler
+gh attestation verify .\cpu-parking-disabler.ps1 -R vadyaravadim/cpu-parking-disabler --signer-workflow vadyaravadim/cpu-parking-disabler/.github/workflows/release.yml
 ```
