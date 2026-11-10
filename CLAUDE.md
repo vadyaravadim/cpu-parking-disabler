@@ -38,8 +38,8 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   the script, so it has to sit somewhere that survives automatic temp cleanup.
 - **`Get-ForwardedSwitchList` is the ONE place mode switches are listed.** Both relaunch paths - the
   `irm | iex` bootstrap rerun and the UAC elevation - build their argument list from it, so neither can
-  silently drop `-Status` or `-Undo`. Splat it as `@(...)`: on PS 5.1 a single forwarded switch unrolls
-  to a scalar string and breaks `powershell.exe -File` switch binding.
+  silently drop `-Status` or `-Undo`. Splat it as `@(...)`: a single forwarded switch unrolls to a scalar
+  string, and splatting it breaks `powershell.exe -File` switch binding under 5.1 and pwsh 7 alike.
 
 ## powercfg and locale gotchas
 
@@ -74,7 +74,11 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   and typographic quotes are the usual way this reds. Only the `.ps1` is checked - Markdown is free.
 - **`lint.yml` - PSScriptAnalyzer over the whole repo, Error + Warning, any finding fails.** Suppressions
   live in `PSScriptAnalyzerSettings.psd1` with the reason written next to each rule. Extend that file with
-  a justification instead of adding an inline suppression attribute.
+  a justification instead of adding an inline suppression attribute. It also checks syntax and .NET types
+  against Windows PowerShell 5.1 (`PSUseCompatibleSyntax`/`PSUseCompatibleTypes`). The type check knows APIs
+  only up to .NET Core 3.1, so a newer one such as `[Convert]::ToHexString` passes lint and only the 5.1
+  test leg catches it. `PSUseCompatibleCommands` stays off: it flagged every Pester 5 parameter against the
+  Pester 3.4 built into 5.1.
 
 ## Release - the newest CHANGELOG section is the version
 
@@ -90,6 +94,13 @@ anything is written. Nothing ships from a push to `main`, and no tag exists unti
 - **`release.yml` calls `lint.yml`, `ascii-check.yml` and `bench-tests.yml` (Pester over `tests` and
   `bench/tests`) through `workflow_call` and `needs:` all three.** Their push-triggered runs on `main` do not
   block the release, and a PSGallery version cannot be re-published.
+- **`bench-tests.yml` runs both suites under Windows PowerShell 5.1 and the runner's `pwsh`, and both legs
+  block the release:** 5.1 is what `Run.bat` and the elevated relaunch always run, so test code stays
+  5.1-safe too - no .NET Core-only APIs, and `ConvertFrom-Json` there emits a top-level array as one object.
+  A third leg on a pinned PowerShell preview (downloaded, SHA256-checked) only warns: it is
+  `continue-on-error`, red without blocking. Nothing bumps that pin - move it by hand: to the final release
+  when it ships, and once `windows-latest` itself ships that version, on to the next preview, or drop the
+  leg if there is none.
 - **`v*` tags cannot be moved or deleted (tag ruleset) and releases are immutable (repo setting).** A broken
   release is fixed by releasing a new patch version (a new CHANGELOG section), never by re-tagging. The
   ruleset leaves tag creation open on purpose: the release creates the tag with `GITHUB_TOKEN`.
@@ -125,6 +136,13 @@ An effect nobody measured, on frame times, DPC latency, stutter or input lag, is
 that recommend the tweak or marked as not measured, never stated as fact, and the star ask names no
 effect. Frame time and ISR/DPC time are not input lag. The method lives in rigpolice's
 `.claude/rules/bench-methodology.md`, section "Conclusions".
+
+**`results-readme.Tests.ps1` turns every recorded number into a decimal with `ConvertTo-WrittenDecimal`,
+never with a `[decimal]` cast or `Measure-Object`.** From .NET 11 (PowerShell 7.7) a double converts to its
+exact binary value: the stock fps median 769.95 became 769.9499... and rounded to 769.9 where the data and
+the README say 770.0. Formatting the number and parsing the text yields what the JSON holds on every
+PowerShell. A cast of text is no exception: PowerShell scans `'1.005'` as a double before it converts, and
+`Measure-Object` returns doubles.
 
 ## The RigPolice pages that mirror this script
 

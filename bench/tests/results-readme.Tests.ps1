@@ -35,6 +35,10 @@ BeforeAll {
         if ($Signed -and $Value -gt 0) { "+$text" } else { $text }
     }
 
+    function ConvertTo-WrittenDecimal($Value) {
+        [decimal]::Parse($Value.ToString([Globalization.CultureInfo]::InvariantCulture), [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture)
+    }
+
     $script:runs = @(Get-ChildItem -Path $seriesDir -Filter 'boot*-state*-*.json' -File | ForEach-Object {
             $record = Get-Content -Path $_.FullName -Raw | ConvertFrom-Json
             $result = Get-Content -Path (Join-Path $seriesDir $record.bench.resultFile) -Raw | ConvertFrom-Json
@@ -52,7 +56,7 @@ BeforeAll {
         $slowest = @{}
         for ($i = 1; $i -lt $lines.Count; $i++) {
             $cells = $lines[$i].Split(',')
-            $wake = [decimal]::Parse($cells[2], [Globalization.CultureInfo]::InvariantCulture)
+            $wake = ConvertTo-WrittenDecimal $cells[2]
             if (-not $slowest.ContainsKey($cells[0]) -or $wake -gt $slowest[$cells[0]]) { $slowest[$cells[0]] = $wake }
         }
         if ($slowest.Count -ne $run.Result.bursts) { throw "$($wakeFile[0]) holds $($slowest.Count) bursts, the result says $($run.Result.bursts)" }
@@ -65,11 +69,11 @@ BeforeAll {
     }
 
     function Get-StateFps([string]$State) {
-        [decimal[]]@($runs | Where-Object { $_.State -eq $State -and $_.Step -eq 'game' } | ForEach-Object { [decimal]$_.Result.frames.avgFps })
+        [decimal[]]@($runs | Where-Object { $_.State -eq $State -and $_.Step -eq 'game' } | ForEach-Object { ConvertTo-WrittenDecimal $_.Result.frames.avgFps })
     }
 
     function Get-StateWakeMedian([string]$State) {
-        Get-DecimalMedian ([decimal[]]@($runs | Where-Object { $_.State -eq $State -and $_.Step -eq 'burst' } | ForEach-Object { [decimal]$_.Result.burst.lastWorkerWakeMs.median }))
+        Get-DecimalMedian ([decimal[]]@($runs | Where-Object { $_.State -eq $State -and $_.Step -eq 'burst' } | ForEach-Object { ConvertTo-WrittenDecimal $_.Result.burst.lastWorkerWakeMs.median }))
     }
 
     function Get-SameBootGap([string]$Anchor, [string]$Other, [scriptblock]$Gap) {
@@ -80,10 +84,10 @@ BeforeAll {
         }
     }
 
-    $script:anchorFpsGain = { param($Anchor, $Other) ([decimal]$Anchor.avgFps / [decimal]$Other.avgFps - 1) * 100 }
-    $script:otherFpsGain = { param($Anchor, $Other) ([decimal]$Other.avgFps / [decimal]$Anchor.avgFps - 1) * 100 }
-    $script:otherLow1Ms = { param($Anchor, $Other) [decimal]$Other.low1PctMs - [decimal]$Anchor.low1PctMs }
-    $script:otherLow01Ms = { param($Anchor, $Other) [decimal]$Other.low01PctMs - [decimal]$Anchor.low01PctMs }
+    $script:anchorFpsGain = { param($Anchor, $Other) ((ConvertTo-WrittenDecimal $Anchor.avgFps) / (ConvertTo-WrittenDecimal $Other.avgFps) - 1) * 100 }
+    $script:otherFpsGain = { param($Anchor, $Other) ((ConvertTo-WrittenDecimal $Other.avgFps) / (ConvertTo-WrittenDecimal $Anchor.avgFps) - 1) * 100 }
+    $script:otherLow1Ms = { param($Anchor, $Other) (ConvertTo-WrittenDecimal $Other.low1PctMs) - (ConvertTo-WrittenDecimal $Anchor.low1PctMs) }
+    $script:otherLow01Ms = { param($Anchor, $Other) (ConvertTo-WrittenDecimal $Other.low01PctMs) - (ConvertTo-WrittenDecimal $Anchor.low01PctMs) }
     $script:sameBootMetrics = @(
         @{ Label = 'average fps'; Gap = $otherFpsGain }
         @{ Label = '1% low'; Gap = $otherLow1Ms }
@@ -110,8 +114,8 @@ BeforeAll {
     }
 
     function Get-GitShowBytes([string]$Spec) {
-        $info = [Diagnostics.ProcessStartInfo]::new('git')
-        foreach ($arg in @('-C', $repoRoot, 'show', $Spec)) { $info.ArgumentList.Add($arg) }
+        $info = [Diagnostics.ProcessStartInfo]::new('git', "show $Spec")
+        $info.WorkingDirectory = $repoRoot
         $info.RedirectStandardOutput = $true
         $info.RedirectStandardError = $true
         $info.UseShellExecute = $false
@@ -120,7 +124,7 @@ BeforeAll {
         $buffer = [IO.MemoryStream]::new()
         $process.StandardOutput.BaseStream.CopyTo($buffer)
         $process.WaitForExit()
-        if ($process.ExitCode) { throw "git show $Spec failed: $($stderr.Result)" }
+        if ($process.ExitCode) { throw "git $($info.Arguments) failed: $($stderr.Result)" }
         $buffer.ToArray()
     }
 }
@@ -136,20 +140,20 @@ Describe 'bench/results/README.md matches the parking-retest files' {
         $state = $_
         $game = @($runs | Where-Object { $_.State -eq $state -and $_.Step -eq 'game' } | ForEach-Object { $_.Result })
         $burst = @($runs | Where-Object { $_.State -eq $state -and $_.Step -eq 'burst' } | ForEach-Object { $_.Result })
-        $fps = [decimal[]]@($game | ForEach-Object { [decimal]$_.frames.avgFps })
-        $total = [decimal[]]@($burst | ForEach-Object { [decimal]$_.burst.totalCoreMs.median })
-        $wake = [decimal[]]@($burst | ForEach-Object { [decimal]$_.burst.lastWorkerWakeMs.median })
+        $fps = [decimal[]]@($game | ForEach-Object { ConvertTo-WrittenDecimal $_.frames.avgFps } | Sort-Object)
+        $total = [decimal[]]@($burst | ForEach-Object { ConvertTo-WrittenDecimal $_.burst.totalCoreMs.median } | Sort-Object)
+        $wake = [decimal[]]@($burst | ForEach-Object { ConvertTo-WrittenDecimal $_.burst.lastWorkerWakeMs.median } | Sort-Object)
         $gameRow = '| {0} | {1} | {2} [{3}-{4}] | {5} | {6} | {7} | {8} |' -f $state, $game.Count,
-            (Format-Fixed (Get-DecimalMedian $fps) 1), (Format-Fixed ($fps | Measure-Object -Minimum).Minimum 1), (Format-Fixed ($fps | Measure-Object -Maximum).Maximum 1),
-            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { [decimal]$_.frames.p50Ms }))) 3),
-            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { [decimal]$_.frames.low1PctMs }))) 2),
-            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { [decimal]$_.frames.low01PctMs }))) 2),
-            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { [decimal]$_.parkedDuringRun.parked.median }))) 0)
+            (Format-Fixed (Get-DecimalMedian $fps) 1), (Format-Fixed $fps[0] 1), (Format-Fixed $fps[-1] 1),
+            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { ConvertTo-WrittenDecimal $_.frames.p50Ms }))) 3),
+            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { ConvertTo-WrittenDecimal $_.frames.low1PctMs }))) 2),
+            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { ConvertTo-WrittenDecimal $_.frames.low01PctMs }))) 2),
+            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($game | ForEach-Object { ConvertTo-WrittenDecimal $_.parkedDuringRun.parked.median }))) 0)
         $burstRow = '| {0} | {1} | {2} | {3} [{4}-{5}] | {6} | {7} [{8}-{9}] |' -f $state, $burst.Count,
-            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($burst | ForEach-Object { [decimal]$_.parkedBeforeBurst.parked.median }))) 0),
-            (Format-Fixed (Get-DecimalMedian $total) 0), (Format-Fixed ($total | Measure-Object -Minimum).Minimum 0), (Format-Fixed ($total | Measure-Object -Maximum).Maximum 0),
-            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($burst | ForEach-Object { [decimal]$_.burst.earlyCoreMs.median }))) 1),
-            (Format-Fixed (Get-DecimalMedian $wake) 2), (Format-Fixed ($wake | Measure-Object -Minimum).Minimum 2), (Format-Fixed ($wake | Measure-Object -Maximum).Maximum 2)
+            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($burst | ForEach-Object { ConvertTo-WrittenDecimal $_.parkedBeforeBurst.parked.median }))) 0),
+            (Format-Fixed (Get-DecimalMedian $total) 0), (Format-Fixed $total[0] 0), (Format-Fixed $total[-1] 0),
+            (Format-Fixed (Get-DecimalMedian ([decimal[]]@($burst | ForEach-Object { ConvertTo-WrittenDecimal $_.burst.earlyCoreMs.median }))) 1),
+            (Format-Fixed (Get-DecimalMedian $wake) 2), (Format-Fixed $wake[0] 2), (Format-Fixed $wake[-1] 2)
         $resultsReadme.Contains($gameRow) | Should -BeTrue -Because "bench/results/README.md should hold the CS2 row '$gameRow'"
         $resultsReadme.Contains($burstRow) | Should -BeTrue -Because "bench/results/README.md should hold the burst row '$burstRow'"
     }
@@ -157,7 +161,7 @@ Describe 'bench/results/README.md matches the parking-retest files' {
     It 'prints every row of the per-burst wake table from the wake files of <_>' -ForEach @('stock', 'min', 'epp', 'min+epp', 'ceil', 'ceil+min', 'ceil+epp') {
         $wakes = Get-StateLastWakes $_
         $row = '| {0} | {1} | {2} | {3} | {4} | {5} |' -f $_, $wakes.Count,
-            (Format-Fixed ([decimal](Get-Percentile ([double[]]$wakes) 0.50)) 2), (Format-Fixed ([decimal](Get-Percentile ([double[]]$wakes) 0.90)) 2),
+            (Format-Fixed (ConvertTo-WrittenDecimal (Get-Percentile ([double[]]$wakes) 0.50)) 2), (Format-Fixed (ConvertTo-WrittenDecimal (Get-Percentile ([double[]]$wakes) 0.90)) 2),
             (Format-Fixed $wakes[-1] 2), @($wakes | Where-Object { $_ -gt $wakeOverMs }).Count
         $resultsReadme.Contains(('| State | Bursts | p50 ms | p90 ms | Slowest ms | Over {0} ms |' -f $wakeOverMs)) | Should -BeTrue -Because 'bench/results/README.md should hold the per-burst wake table'
         $resultsReadme.Contains($row) | Should -BeTrue -Because "bench/results/README.md should hold the per-burst wake row '$row'"
@@ -211,11 +215,11 @@ Describe 'bench/results/README.md matches the parking-retest files' {
 
     It 'quotes the GPU busy share of the median frame and the CPU-bound check of every game run' {
         $game = @($runs | Where-Object Step -eq 'game' | ForEach-Object { $_.Result.frames })
-        $shares = [decimal[]]@($game | ForEach-Object { [decimal]$_.gpuBusyP50Ms / [decimal]$_.p50Ms * 100 })
-        $quote = 'the GPU was busy for {0} to {1}% of the median frame' -f (Format-Fixed ($shares | Measure-Object -Minimum).Minimum 0), (Format-Fixed ($shares | Measure-Object -Maximum).Maximum 0)
+        $shares = [decimal[]]@($game | ForEach-Object { (ConvertTo-WrittenDecimal $_.gpuBusyP50Ms) / (ConvertTo-WrittenDecimal $_.p50Ms) * 100 } | Sort-Object)
+        $quote = 'the GPU was busy for {0} to {1}% of the median frame' -f (Format-Fixed $shares[0] 0), (Format-Fixed $shares[-1] 0)
         $flatResultsReadme.Contains($quote) | Should -BeTrue -Because "bench/results/README.md should say '$quote'"
         if ($flatResultsReadme -match 'in every run the median of PresentMon') {
-            @($game | Where-Object { [decimal]$_.cpuBusyP50Ms -ne [decimal]$_.p50Ms }) | Should -BeNullOrEmpty
+            @($game | Where-Object { (ConvertTo-WrittenDecimal $_.cpuBusyP50Ms) -ne (ConvertTo-WrittenDecimal $_.p50Ms) }) | Should -BeNullOrEmpty
         }
     }
 
@@ -231,7 +235,7 @@ Describe 'bench/results/README.md matches the parking-retest files' {
     }
 
     It 'quotes the parked counts of the idle checks from parked-samples.json' {
-        $samples = @(Get-Content -Path (Join-Path $checksDir 'parked-samples.json') -Raw | ConvertFrom-Json)
+        $samples = Get-Content -Path (Join-Path $checksDir 'parked-samples.json') -Raw | ConvertFrom-Json
         $cpus = @($runs | ForEach-Object { $_.Result.parkedDuringRun.logicalCpus } | Where-Object { $_ } | Sort-Object -Unique)
         $cpus.Count | Should -Be 1
         $balanced = @($samples | Where-Object Plan -eq 'balanced' | ForEach-Object { [int]$_.Median } | Sort-Object)
@@ -258,7 +262,7 @@ Describe 'bench/results/README.md matches the parking-retest files' {
         $recorded = @($runs | ForEach-Object { $_.Result.metadata.benchScript.sha256 } | Sort-Object -Unique)
         $recorded.Count | Should -Be 1
         $bytes = Get-GitShowBytes ('{0}:bench/parking-bench.ps1' -f $commits[0])
-        [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant() | Should -Be $recorded[0]
+        (Get-FileHash -InputStream ([IO.MemoryStream]::new([byte[]]$bytes)) -Algorithm SHA256).Hash.ToLower() | Should -Be $recorded[0]
     }
 
     It 'names the workshop map by the title in loads/cs2.json' {
@@ -298,11 +302,11 @@ Describe 'bench/results/README.md matches the parking-retest files' {
     }
 
     It 'quotes the same-boot ceiling comparison: ceil beat ceil+min in every ceiling boot, by the published range' {
-        $vsMin = @(Get-SameBootGap 'ceil' 'ceil+min' $anchorFpsGain)
-        $vsEpp = @(Get-SameBootGap 'ceil' 'ceil+epp' $anchorFpsGain)
+        $vsMin = [decimal[]]@(Get-SameBootGap 'ceil' 'ceil+min' $anchorFpsGain | Sort-Object)
+        $vsEpp = [decimal[]]@(Get-SameBootGap 'ceil' 'ceil+epp' $anchorFpsGain | Sort-Object)
         @($vsMin | Where-Object { $_ -le 0 }) | Should -BeNullOrEmpty -Because 'the README says ceil beat ceil+min in every ceiling boot'
-        $minRange = 'by {0}% to {1}%' -f (Format-Fixed ($vsMin | Measure-Object -Minimum).Minimum 2), (Format-Fixed ($vsMin | Measure-Object -Maximum).Maximum 2)
-        $eppRange = 'from {0}% to {1}%' -f (Format-Fixed ($vsEpp | Measure-Object -Minimum).Minimum 2 -Signed), (Format-Fixed ($vsEpp | Measure-Object -Maximum).Maximum 2 -Signed)
+        $minRange = 'by {0}% to {1}%' -f (Format-Fixed $vsMin[0] 2), (Format-Fixed $vsMin[-1] 2)
+        $eppRange = 'from {0}% to {1}%' -f (Format-Fixed $vsEpp[0] 2 -Signed), (Format-Fixed $vsEpp[-1] 2 -Signed)
         $resultsReadme.Contains($minRange) | Should -BeTrue -Because "bench/results/README.md should say '$minRange'"
         $resultsReadme.Contains($eppRange) | Should -BeTrue -Because "bench/results/README.md should say '$eppRange'"
     }
@@ -334,8 +338,8 @@ Describe 'README.md matches the parking-retest files' {
         $ratio = (Get-StateWakeMedian 'stock') / (Get-StateWakeMedian 'min+epp')
         $m = [regex]::Match($mainReadme, 'about (\d+) times sooner')
         $m.Success | Should -BeTrue
-        [decimal]$m.Groups[1].Value | Should -BeGreaterOrEqual ($ratio * 0.9)
-        [decimal]$m.Groups[1].Value | Should -BeLessOrEqual ($ratio * 1.1)
+        ConvertTo-WrittenDecimal $m.Groups[1].Value | Should -BeGreaterOrEqual ($ratio * 0.9)
+        ConvertTo-WrittenDecimal $m.Groups[1].Value | Should -BeLessOrEqual ($ratio * 1.1)
     }
 
     It 'quotes the bursts over the wake threshold of <State> in the Measured Impact table' -ForEach @(
@@ -369,14 +373,14 @@ Describe 'README.md matches the parking-retest files' {
     ) {
         $m = [regex]::Match($flatMainReadme, 'With the script''s settings, the 1% and 0\.1% lows stayed within (\d+(?:\.\d+)?)% of stock in every boot')
         $m.Success | Should -BeTrue
-        $changes = [decimal[]]@(Get-SameBootGap 'stock' 'min+epp' { param($Anchor, $Other) [Math]::Abs(([decimal]$Other.$Field / [decimal]$Anchor.$Field - 1) * 100) }.GetNewClosure())
+        $changes = [decimal[]]@(Get-SameBootGap 'stock' 'min+epp' { param($Anchor, $Other) [Math]::Abs(((ConvertTo-WrittenDecimal $Other.$Field) / (ConvertTo-WrittenDecimal $Anchor.$Field) - 1) * 100) } | Sort-Object)
         $changes.Count | Should -BeGreaterThan 0
-        ($changes | Measure-Object -Maximum).Maximum | Should -BeLessThan ([decimal]$m.Groups[1].Value)
+        $changes[-1] | Should -BeLessThan (ConvertTo-WrittenDecimal $m.Groups[1].Value)
     }
 
     It 'quotes the typical and slowest stock burst wake from the wake files' {
         $wakes = Get-StateLastWakes 'stock'
-        $quote = 'woke about {0} ms late in a typical burst and up to {1} ms late' -f (Format-Fixed ([decimal](Get-Percentile ([double[]]$wakes) 0.50)) 0), (Format-Fixed $wakes[-1] 0)
+        $quote = 'woke about {0} ms late in a typical burst and up to {1} ms late' -f (Format-Fixed (ConvertTo-WrittenDecimal (Get-Percentile ([double[]]$wakes) 0.50)) 0), (Format-Fixed $wakes[-1] 0)
         $flatMainReadme.Contains($quote) | Should -BeTrue -Because "README.md should say '$quote'"
     }
 
