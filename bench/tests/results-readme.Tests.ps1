@@ -35,10 +35,6 @@ BeforeAll {
         if ($Signed -and $Value -gt 0) { "+$text" } else { $text }
     }
 
-    function ConvertTo-WrittenDecimal($Value) {
-        [decimal]::Parse($Value.ToString([Globalization.CultureInfo]::InvariantCulture), [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture)
-    }
-
     $script:runs = @(Get-ChildItem -Path $seriesDir -Filter 'boot*-state*-*.json' -File | ForEach-Object {
             $record = Get-Content -Path $_.FullName -Raw | ConvertFrom-Json
             $result = Get-Content -Path (Join-Path $seriesDir $record.bench.resultFile) -Raw | ConvertFrom-Json
