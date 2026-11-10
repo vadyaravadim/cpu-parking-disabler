@@ -15,7 +15,7 @@ section is empty or its compare link at the bottom is missing.
 - Releases are tagged only after every check has passed on the commit they are built from, and the
   PowerShell Gallery package always holds the same file as the GitHub release.
 - Checking that a downloaded script was built from this repository takes a new `gh attestation verify` command
-  from the next release on: releases are now built by the release workflow all six RigPolice scripts share.
+  from this release on: releases are now built by the release workflow all six RigPolice scripts share.
   SECURITY.md has both commands.
 
 ## [1.3.2] - 2026-11-07

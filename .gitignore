@@ -4,4 +4,5 @@ bench/parking-bench-*.json
 .vs/
 .vscode/
 .claude/
+.DS_Store
 bench/parking-bench-*.csv
