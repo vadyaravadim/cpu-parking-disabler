@@ -5,7 +5,8 @@ A single self-contained PowerShell script (`cpu-parking-disabler.ps1`) that disa
 the active power scheme, for AC and DC. `-Status` shows the parked-core count and the four values without
 changing anything; `-Undo` restores the per-run `parking_undo_<stamp>.json` snapshot. Part of a family of
 six single-script Windows tuning tools that share this layout: one `.ps1`, `Run.bat`,
-`PSScriptAnalyzerSettings.psd1`, and the same three workflows.
+`PSScriptAnalyzerSettings.psd1`, and two thin workflows, `ci.yml` and `release.yml`, that call the family's
+shared pipeline in `vadyaravadim/latency-toolbox-ci`.
 
 **The registry unhide must stay BEFORE the `powercfg` writes, on apply AND on undo.** The four settings are
 hidden by default, and a hidden processor setting can be ignored by the OS even after `powercfg` writes a
@@ -66,19 +67,32 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
 - **`-Status` skips elevation on purpose** - it only reads, and a UAC prompt for a read-only check is what
   makes people stop checking.
 
-## The two CI gates
+## The CI gates
 
-- **`ascii-check.yml` - the .ps1 must be pure ASCII with no BOM.** Both halves are load-bearing: a BOM
-  makes `irm | iex` choke on a leading U+FEFF, and non-ASCII in a BOM-less file turns into mojibake when
+The gates and the release job live in `.github/workflows/pipeline.yml` of `vadyaravadim/latency-toolbox-ci`,
+not here: `ci.yml` runs it on every push and pull request, `release.yml` from a dispatch. Change a gate there.
+
+- **The ASCII gate - every tracked `.ps1` must be pure ASCII with no BOM.** Both halves are load-bearing: a
+  BOM makes `irm | iex` choke on a leading U+FEFF, and non-ASCII in a BOM-less file turns into mojibake when
   Windows PowerShell 5.1 runs it with `-File`. Write `\uXXXX` regex escapes rather than literals; em-dashes
-  and typographic quotes are the usual way this reds. Only the `.ps1` is checked - Markdown is free.
-- **`lint.yml` - PSScriptAnalyzer over the whole repo, Error + Warning, any finding fails.** Suppressions
-  live in `PSScriptAnalyzerSettings.psd1` with the reason written next to each rule. Extend that file with
-  a justification instead of adding an inline suppression attribute. It also checks syntax and .NET types
-  against Windows PowerShell 5.1 (`PSUseCompatibleSyntax`/`PSUseCompatibleTypes`). The type check knows APIs
-  only up to .NET Core 3.1, so a newer one such as `[Convert]::ToHexString` passes lint and only the 5.1
-  test leg catches it. `PSUseCompatibleCommands` stays off: it flagged every Pester 5 parameter against the
-  Pester 3.4 built into 5.1.
+  and typographic quotes are the usual way this reds. Only `.ps1` files are checked - Markdown is free.
+- **The lint gate - PSScriptAnalyzer over the whole repo, Error + Warning, any finding fails.** Suppressions
+  live in `PSScriptAnalyzerSettings.psd1` with the reason written next to each rule; add a justified
+  exclusion there instead of an inline suppression attribute. The file is the family's: lint fails unless it
+  is byte-identical to the one in `vadyaravadim/latency-toolbox-ci` at the pinned commit, so change it there
+  and copy it into all six repos. Lint also fails unless `ci.yml` and `release.yml` pin `latency-toolbox-ci`
+  to the full SHA of the commit the run uses. It also checks syntax and .NET types against Windows
+  PowerShell 5.1 (`PSUseCompatibleSyntax`/`PSUseCompatibleTypes`). The type check knows APIs only up to .NET
+  Core 3.1, so a newer one such as `[Convert]::ToHexString` passes lint and only the 5.1 test leg catches
+  it. `PSUseCompatibleCommands` stays off: it flagged every Pester 5 parameter against the Pester 3.4 built
+  into 5.1.
+- **The Pester gate runs every tracked `*.Tests.ps1` under Windows PowerShell 5.1 and the runner's `pwsh`,
+  and both legs block the release:** 5.1 is what `Run.bat` and the elevated relaunch always run, so test code
+  stays 5.1-safe too - no .NET Core-only APIs, and `ConvertFrom-Json` there emits a top-level array as one
+  object. A third leg on a pinned PowerShell preview (downloaded, SHA256-checked) only warns: it is
+  `continue-on-error`, red without blocking. Nothing bumps that pin - move it by hand in `pipeline.yml`: to
+  the final release when it ships, and once `windows-latest` itself ships that version, on to the next
+  preview, or drop the leg if there is none. A repo with no test file passes the gate with a notice.
 
 ## Release - the newest CHANGELOG section is the version
 
@@ -91,26 +105,30 @@ anything is written. Nothing ships from a push to `main`, and no tag exists unti
 - **The `irm | iex` URL is `releases/latest/download/cpu-parking-disabler.ps1` - in the README AND in the
   script's bootstrap download, never `raw.githubusercontent.com/.../main`.** That is what keeps the
   sentence above true for the one-liner, and makes the saved copy byte-identical to the attested asset.
-- **`release.yml` calls `lint.yml`, `ascii-check.yml` and `bench-tests.yml` (Pester over `tests` and
-  `bench/tests`) through `workflow_call` and `needs:` all three.** Their push-triggered runs on `main` do not
-  block the release, and a PSGallery version cannot be re-published.
-- **`bench-tests.yml` runs both suites under Windows PowerShell 5.1 and the runner's `pwsh`, and both legs
-  block the release:** 5.1 is what `Run.bat` and the elevated relaunch always run, so test code stays
-  5.1-safe too - no .NET Core-only APIs, and `ConvertFrom-Json` there emits a top-level array as one object.
-  A third leg on a pinned PowerShell preview (downloaded, SHA256-checked) only warns: it is
-  `continue-on-error`, red without blocking. Nothing bumps that pin - move it by hand: to the final release
-  when it ships, and once `windows-latest` itself ships that version, on to the next preview, or drop the
-  leg if there is none.
+- **`ci.yml` and `release.yml` pin `pipeline.yml` of `vadyaravadim/latency-toolbox-ci` to the same full
+  commit SHA, with its version tag as a comment.** There the release job `needs:` the lint, ASCII and Pester
+  jobs of the same run, on the same commit: the push-triggered `ci` runs on `main` do not block a release,
+  and a PSGallery version cannot be re-published. A pipeline change reaches this repo only when the pin
+  moves: Dependabot proposes the bump monthly, a hand bump changes both lines together (lint fails while
+  they differ), and reverting the whole bump - including a `PSScriptAnalyzerSettings.psd1` copy it brought -
+  undoes it.
+- **The provenance is signed by `pipeline.yml` of `vadyaravadim/latency-toolbox-ci`, not by this repo.**
+  `gh attestation verify` needs
+  `--signer-workflow vadyaravadim/latency-toolbox-ci/.github/workflows/pipeline.yml` (SECURITY.md); 1.1.2 to
+  1.3.2 were signed by this repo's own `release.yml`, earlier releases carry no provenance. Never rename or
+  delete `latency-toolbox-ci`: GitHub does not redirect a renamed reusable workflow, so every caller breaks.
 - **`v*` tags cannot be moved or deleted (tag ruleset) and releases are immutable (repo setting).** A broken
   release is fixed by releasing a new patch version (a new CHANGELOG section), never by re-tagging. The
   ruleset leaves tag creation open on purpose: the release creates the tag with `GITHUB_TOKEN`.
 - **Never push a `v*` tag by hand.** It starts no release and cannot be deleted; unless it sits on the exact
   commit the release then runs on, the release stops before publishing and that version is burned.
 - **Finish a failed release with "Re-run failed jobs" on that run, not a new run.** The re-run builds the
-  same commit: the Gallery step (`.github/Publish-GalleryScript.ps1`) skips a version already there with
-  identical bytes and fails on different bytes. A run cancelled during the GitHub Release step can leave a
-  draft - delete it before re-running. Release the next version instead only when that run is older than
-  30 days and can no longer be re-run.
+  same commit with the same pinned pipeline: the Gallery step (`.github/Publish-GalleryScript.ps1` of
+  `vadyaravadim/latency-toolbox-ci`) skips a version already there with identical bytes and fails on
+  different bytes. A run cancelled during the GitHub Release step can leave a draft - delete it before
+  re-running. Release the next version instead only when that run is older than 30 days and can no longer
+  be re-run. A failure inside the pipeline itself needs a fixed `latency-toolbox-ci` version, a bump here and
+  a new run.
 
 **Before releasing, move the `## [Unreleased]` bullets in `CHANGELOG.md` into a `## [X.Y.Z] - YYYY-MM-DD`
 section and add its `[X.Y.Z]: .../compare/vPREV...vX.Y.Z` link at the bottom.** That section is the
