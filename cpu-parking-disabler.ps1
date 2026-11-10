@@ -138,7 +138,7 @@ if (-not $PSCommandPath) {
     [IO.File]::WriteAllText($saved, $body, [Text.UTF8Encoding]::new($false))
     Write-Host "Script saved to: $saved (the undo file will be written next to it)" -ForegroundColor Cyan
     # @(): a single forwarded switch unrolls to a scalar, and splatting a
-    # scalar string breaks powershell.exe -File switch binding on PS 5.1.
+    # scalar string breaks powershell.exe -File switch binding.
     $fwd = @(Get-ForwardedSwitchList)
     powershell -NoProfile -ExecutionPolicy Bypass -File $saved @fwd
     # The rerun's exit code stays in $LASTEXITCODE for scripted callers.

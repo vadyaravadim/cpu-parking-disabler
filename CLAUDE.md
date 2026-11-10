@@ -38,8 +38,8 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   the script, so it has to sit somewhere that survives automatic temp cleanup.
 - **`Get-ForwardedSwitchList` is the ONE place mode switches are listed.** Both relaunch paths - the
   `irm | iex` bootstrap rerun and the UAC elevation - build their argument list from it, so neither can
-  silently drop `-Status` or `-Undo`. Splat it as `@(...)`: on PS 5.1 a single forwarded switch unrolls
-  to a scalar string and breaks `powershell.exe -File` switch binding.
+  silently drop `-Status` or `-Undo`. Splat it as `@(...)`: a single forwarded switch unrolls to a scalar
+  string, and splatting it breaks `powershell.exe -File` switch binding under 5.1 and pwsh 7 alike.
 
 ## powercfg and locale gotchas
 
@@ -74,7 +74,11 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   and typographic quotes are the usual way this reds. Only the `.ps1` is checked - Markdown is free.
 - **`lint.yml` - PSScriptAnalyzer over the whole repo, Error + Warning, any finding fails.** Suppressions
   live in `PSScriptAnalyzerSettings.psd1` with the reason written next to each rule. Extend that file with
-  a justification instead of adding an inline suppression attribute.
+  a justification instead of adding an inline suppression attribute. It also checks syntax and .NET types
+  against Windows PowerShell 5.1 (`PSUseCompatibleSyntax`/`PSUseCompatibleTypes`). The type check knows APIs
+  only up to .NET Core 3.1, so a newer one such as `[Convert]::ToHexString` passes lint and only the 5.1
+  test leg catches it. `PSUseCompatibleCommands` stays off: it flagged every Pester 5 parameter against the
+  Pester 3.4 built into 5.1.
 
 ## Release - the newest CHANGELOG section is the version
 
@@ -137,7 +141,8 @@ effect. Frame time and ISR/DPC time are not input lag. The method lives in rigpo
 never with a `[decimal]` cast or `Measure-Object`.** From .NET 11 (PowerShell 7.7) a double converts to its
 exact binary value: the stock fps median 769.95 became 769.9499... and rounded to 769.9 where the data and
 the README say 770.0. Formatting the number and parsing the text yields what the JSON holds on every
-PowerShell.
+PowerShell. A cast of text is no exception: PowerShell scans `'1.005'` as a double before it converts, and
+`Measure-Object` returns doubles.
 
 ## The RigPolice pages that mirror this script
 
