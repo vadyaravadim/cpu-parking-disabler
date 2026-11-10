@@ -90,6 +90,13 @@ anything is written. Nothing ships from a push to `main`, and no tag exists unti
 - **`release.yml` calls `lint.yml`, `ascii-check.yml` and `bench-tests.yml` (Pester over `tests` and
   `bench/tests`) through `workflow_call` and `needs:` all three.** Their push-triggered runs on `main` do not
   block the release, and a PSGallery version cannot be re-published.
+- **`bench-tests.yml` runs both suites under Windows PowerShell 5.1 and the runner's `pwsh`, and both legs
+  block the release:** 5.1 is what `Run.bat` and the elevated relaunch always run, so test code stays
+  5.1-safe too - no .NET Core-only APIs, and `ConvertFrom-Json` there emits a top-level array as one object.
+  A third leg on a pinned PowerShell preview (downloaded, SHA256-checked) only warns: it is
+  `continue-on-error`, red without blocking. Nothing bumps that pin - move it by hand: to the final release
+  when it ships, and once `windows-latest` itself ships that version, on to the next preview, or drop the
+  leg if there is none.
 - **`v*` tags cannot be moved or deleted (tag ruleset) and releases are immutable (repo setting).** A broken
   release is fixed by releasing a new patch version (a new CHANGELOG section), never by re-tagging. The
   ruleset leaves tag creation open on purpose: the release creates the tag with `GITHUB_TOKEN`.
@@ -125,6 +132,12 @@ An effect nobody measured, on frame times, DPC latency, stutter or input lag, is
 that recommend the tweak or marked as not measured, never stated as fact, and the star ask names no
 effect. Frame time and ISR/DPC time are not input lag. The method lives in rigpolice's
 `.claude/rules/bench-methodology.md`, section "Conclusions".
+
+**`results-readme.Tests.ps1` turns every recorded number into a decimal with `ConvertTo-WrittenDecimal`,
+never with a `[decimal]` cast or `Measure-Object`.** From .NET 11 (PowerShell 7.7) a double converts to its
+exact binary value: the stock fps median 769.95 became 769.9499... and rounded to 769.9 where the data and
+the README say 770.0. Formatting the number and parsing the text yields what the JSON holds on every
+PowerShell.
 
 ## The RigPolice pages that mirror this script
 
