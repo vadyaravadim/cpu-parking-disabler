@@ -144,3 +144,38 @@ Describe 'PSScriptInfo version placeholder' {
         $lines[0] | Should -BeExactly '.VERSION 0.0.0'
     }
 }
+
+Describe 'Invoke-Powercfg under ErrorActionPreference Stop' {
+    BeforeAll {
+        $fn = Find-ScriptNode { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-Powercfg' }
+        . ([scriptblock]::Create($fn.Extent.Text))
+        $script:stubError = 'stub powercfg failed'
+        Set-Content -LiteralPath (Join-Path $TestDrive 'powercfg.cmd') -Value "@echo $stubError 1>&2`r`n@exit /b 1" -Encoding Ascii
+        $script:savedPath = $env:PATH
+        $env:PATH = "$TestDrive;$env:PATH"
+    }
+
+    AfterAll {
+        $env:PATH = $savedPath
+    }
+
+    It 'returns a failed call with its stderr text instead of throwing' {
+        $ErrorActionPreference = 'Stop'
+        $result = Invoke-Powercfg @('/stub')
+        $result.Ok | Should -BeFalse
+        $result.Text | Should -Match $stubError
+    }
+}
+
+Describe 'the irm | iex rerun forwards a single mode switch to powershell.exe -File' {
+    It 'binds -Status in the rerun when it is the only forwarded switch' {
+        $forwarder = Find-ScriptNode { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-ForwardedSwitchList' }
+        $bootstrap = Find-ScriptNode { param($n) $n -is [System.Management.Automation.Language.IfStatementAst] -and $n.Clauses[0].Item1.Extent.Text -eq '-not $PSCommandPath' }
+        $rerun = @($bootstrap.Clauses[0].Item2.Statements | Where-Object { $_.Extent.Text -match '^(\$fwd\s*=|powershell\s)' })
+        $rerun.Count | Should -Be 2
+        $stub = Join-Path $TestDrive 'rerun-stub.ps1'
+        Set-Content -LiteralPath $stub -Value 'param([switch]$Status, [switch]$Undo) "Status=$Status Undo=$Undo"' -Encoding Ascii
+        $code = @('param($Status, $Undo, $saved)', $forwarder.Extent.Text) + @($rerun | ForEach-Object { $_.Extent.Text })
+        & ([scriptblock]::Create($code -join "`n")) $true $false $stub | Should -Be 'Status=True Undo=False'
+    }
+}
