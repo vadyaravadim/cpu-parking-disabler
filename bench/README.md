@@ -15,8 +15,8 @@ Reproduce the measurements behind the RigPolice article https://rigpolice.com/sy
 ## Steps
 
 1. Make the machine quiet yourself. The bench only measures: it does not check, close or change anything. Reboot, do not open a browser, launcher, updater, VPN or monitoring tool afterwards, and wait the same fixed time after every reboot (write it down) so uptime is comparable between states.
-2. Start the load from the section "Loads" and let it settle.
-3. Run the bench from the elevated shell: `.\parking-bench.ps1 -Phase stock` (burst), `.\parking-bench.ps1 -Phase stock -Test framesim`, `.\parking-bench.ps1 -Phase stock -Test game -Load cs2 -PresentMon <path to PresentMon-2.6.0-x64.exe>`; then the same with `-Phase tweaked`. For a capped game run add `-FpsMax <N>` to the game command (for example `-FpsMax 144`; see the section below). Results go next to the script, or to `-OutDir`.
+2. If you run with `-Load`, do not start the load yet: the bench waits for it. Otherwise start your own load now, if your test needs one.
+3. Run the bench from the elevated shell: `.\parking-bench.ps1 -Phase stock` (burst), `.\parking-bench.ps1 -Phase stock -Test framesim`, `.\parking-bench.ps1 -Phase stock -Test game -Load cs2 -PresentMon <path to PresentMon-2.6.0-x64.exe>`; then the same with `-Phase tweaked`. For a capped game run add `-FpsMax <N>` to the game command (for example `-FpsMax 144`; see the section below). Results go next to the script, or to `-OutDir`. With `-Load`, start the load from the section "Loads" after the bench prints `Waiting for <process> ...`.
 4. Repeat at least 5 times per state in the order A-B-A-B (never all A then all B), with a reboot before every run.
 
 For `-Test game` start the bench before the load: it waits for the load's process and, when the recipe names a start line, for that line in the game log, then waits the load pause and captures. Do not touch the PC until it prints the result.
