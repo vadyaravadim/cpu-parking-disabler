@@ -155,12 +155,12 @@ that recommend the tweak or marked as not measured, never stated as fact, and th
 effect. Frame time and ISR/DPC time are not input lag. The method lives in rigpolice's
 `.claude/rules/bench-methodology.md`, section "Conclusions".
 
-**`results-readme.Tests.ps1` turns every recorded number into a decimal with `ConvertTo-WrittenDecimal`,
-never with a `[decimal]` cast or `Measure-Object`.** From .NET 11 (PowerShell 7.7) a double converts to its
-exact binary value: the stock fps median 769.95 became 769.9499... and rounded to 769.9 where the data and
-the README say 770.0. Formatting the number and parsing the text yields what the JSON holds on every
-PowerShell. A cast of text is no exception: PowerShell scans `'1.005'` as a double before it converts, and
-`Measure-Object` returns doubles.
+**`results-readme.Tests.ps1` turns every recorded number into a decimal with `ConvertTo-WrittenDecimal`
+(`bench/bench-env.ps1`, shared with msi-mode-utility), never with a `[decimal]` cast or `Measure-Object`.**
+From .NET 11 (PowerShell 7.7) a double converts to its exact binary value: the stock fps median 769.95 became
+769.9499... and rounded to 769.9 where the data and the README say 770.0. Formatting the number and parsing
+the text yields what the JSON holds on every PowerShell. A cast of text is no exception: PowerShell scans
+`'1.005'` as a double before it converts, and `Measure-Object` returns doubles.
 
 ## The RigPolice pages that mirror this script
 
