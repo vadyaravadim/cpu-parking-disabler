@@ -8,9 +8,9 @@
 
 .COMPANYNAME
 
-.COPYRIGHT
+.COPYRIGHT Copyright (c) 2025 vadyaravadim
 
-.TAGS Windows Windows10 Windows11 Gaming CPU CoreParking PowerPlan Performance Latency Stutter Tweak
+.TAGS Windows Windows10 Windows11 Gaming CPU CoreParking PowerPlan Performance Latency Stutter Tweak PSEdition_Desktop PSEdition_Core
 
 .LICENSEURI https://github.com/vadyaravadim/cpu-parking-disabler/blob/main/LICENSE
 
@@ -24,7 +24,7 @@
 
 .EXTERNALSCRIPTDEPENDENCIES
 
-.RELEASENOTES
+.RELEASENOTES https://github.com/vadyaravadim/cpu-parking-disabler/blob/main/CHANGELOG.md
 
 .PRIVATEDATA
 

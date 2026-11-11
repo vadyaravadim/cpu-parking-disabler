@@ -42,20 +42,29 @@ Out of scope:
 ## Verifying a Release
 
 Each release publishes `SHA256SUMS.txt` and Sigstore build provenance. Verify a
-download before running it:
+download before running it.
+
+Releases from v1.2.0 on are immutable: when one is published, GitHub itself attests
+its tag, its commit and every file attached to it. This check works for every one of
+them, whichever workflow built the file. Without a tag it checks against the latest
+release; to check an older one, put its tag (`vX.Y.Z`) before the file name. It needs
+the [GitHub CLI](https://cli.github.com/):
+
+```powershell
+gh release verify-asset .\cpu-parking-disabler.ps1 -R vadyaravadim/cpu-parking-disabler
+```
+
+Without the GitHub CLI, compare the file's hash against the one in the corresponding
+[release](https://github.com/vadyaravadim/cpu-parking-disabler/releases):
 
 ```powershell
 Get-FileHash .\cpu-parking-disabler.ps1 -Algorithm SHA256
 ```
 
-Compare the hash against the one in the corresponding
-[release](https://github.com/vadyaravadim/cpu-parking-disabler/releases).
-
 The hash only proves the file matches the release page. The provenance proves the
-file was built from the tagged commit of this repository by the release workflow
-shared by the six RigPolice Latency Toolbox scripts,
-[`vadyaravadim/latency-toolbox-ci`](https://github.com/vadyaravadim/latency-toolbox-ci) - check it
-with the [GitHub CLI](https://cli.github.com/):
+file was built from the tagged commit of this repository. Releases after v1.3.2 are
+built by the release workflow shared by the six RigPolice Latency Toolbox scripts,
+[`vadyaravadim/latency-toolbox-ci`](https://github.com/vadyaravadim/latency-toolbox-ci):
 
 ```powershell
 gh attestation verify .\cpu-parking-disabler.ps1 -R vadyaravadim/cpu-parking-disabler --signer-workflow vadyaravadim/latency-toolbox-ci/.github/workflows/pipeline.yml
@@ -69,12 +78,4 @@ Releases v1.1.2 to v1.3.2 were built by this repository's own `release.yml`
 
 ```powershell
 gh attestation verify .\cpu-parking-disabler.ps1 -R vadyaravadim/cpu-parking-disabler --signer-workflow vadyaravadim/cpu-parking-disabler/.github/workflows/release.yml
-```
-
-Releases from v1.2.0 on are immutable: when one is published, GitHub itself attests
-its tag, its commit and every file attached to it. That check does not depend on
-which workflow built the file:
-
-```powershell
-gh release verify-asset vX.Y.Z .\cpu-parking-disabler.ps1 -R vadyaravadim/cpu-parking-disabler
 ```
