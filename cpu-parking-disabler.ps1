@@ -328,7 +328,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     Write-Host ""
 
     # ---- Undo mode ----
-    if ($Undo) {
+    if ($Undo -and -not $Status) {
         # Sort by the name stamp - LastWriteTime survives renames and can mislead.
         $undoFile = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'parking_undo_*.json' -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notmatch '\.applied\.json$' } |
@@ -393,15 +393,6 @@ if ($MyInvocation.InvocationName -ne '.') {
 
     if ($Status) { Wait-IfElevatedWindow; return }
 
-    if ($x3dNote.Prompt) {
-        $answer = Read-Host "Continue anyway? [y/N]"
-        if ($answer -notmatch '^y') {
-            Write-Host "Nothing changed." -ForegroundColor Green
-            Wait-IfElevatedWindow; return
-        }
-        Write-Host ""
-    }
-
     # Nothing to change -> no undo file: a repeat-run snapshot would record the
     # already-tweaked state, and the next -Undo would "revert" to it instead of
     # the original.
@@ -409,6 +400,15 @@ if ($MyInvocation.InvocationName -ne '.') {
         Write-Host "All values already at target - nothing to do, no undo file written." -ForegroundColor Green
         Wait-IfElevatedWindow
         return
+    }
+
+    if ($x3dNote.Prompt) {
+        $answer = Read-Host "Continue anyway? [y/N]"
+        if ($answer -notmatch '^y') {
+            Write-Host "Nothing changed." -ForegroundColor Green
+            Wait-IfElevatedWindow; return
+        }
+        Write-Host ""
     }
 
     # ---- Undo file: the CURRENT values of every setting, BEFORE changing anything ----
