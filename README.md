@@ -35,6 +35,8 @@ irm https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest/downloa
 
 The script saves itself to `%USERPROFILE%\cpu-parking-disabler.ps1` and reruns from there; an existing copy at that path that differs is kept as `.bak`. The undo file is written next to it. The `irm | iex` pipe itself takes no switches - run the saved copy instead, see the switch table below.
 
+**Check it before it runs:** download `cpu-parking-disabler.ps1` from the [latest release](https://github.com/vadyaravadim/cpu-parking-disabler/releases/latest), verify it as [SECURITY.md](SECURITY.md#verifying-a-release) shows, then run that file with `powershell -ExecutionPolicy Bypass -File .\cpu-parking-disabler.ps1`.
+
 **From the PowerShell Gallery**, in PowerShell 7 (`pwsh`):
 
 ```powershell
@@ -195,6 +197,8 @@ powercfg -restoredefaultschemes
 | **Intel** | 10th gen and newer (the P-core settings apply to hybrid chips with E-cores, 12th gen and newer) |
 | **AMD** | Ryzen 5000 / 7000 / 9000; **not recommended on X3D parts with V-Cache on one of two CCDs**, see below |
 | **Windows** | 10, 11, any display language |
+| **PowerShell** | Windows PowerShell 5.1 (ships with Windows 10/11); PowerShell 7 works too |
+| **Rights** | Administrator (the script self-elevates via UAC); `-Status` needs none |
 
 > **Ryzen 9 7900X3D / 7950X3D / 9900X3D / 9950X3D, and the laptop 7945HX3D / 9955HX3D:** these chips carry 3D V-Cache on one of their two CCDs. When the Xbox Game Bar detects a game, Windows turns on Game Mode, and AMD's chipset driver then parks the standard CCD so the game stays on the V-Cache chiplet ([Tom's Hardware](https://www.tomshardware.com/reviews/amd-ryzen-9-7950x3d-cpu-review)). Unparking every core defeats that, and games can run slower. The script detects these CPUs and asks before continuing. Single-CCD X3D parts, such as the 5800X3D, 7800X3D and 9800X3D, are unaffected. The 9950X3D2 has V-Cache on both CCDs, so unparking cannot move a game off the cache, and [TechPowerUp](https://www.techpowerup.com/review/amd-ryzen-9-9950x3d2-dual-edition/28.html) measured nearly the same gaming performance with all 16 cores active. The script only prints a note there.
 
@@ -233,6 +237,9 @@ Registry guides that tell you to search for `0cc5b647-c1df-4637-891a-dec35c31858
 ### How do I re-enable core parking?
 Run the script with `-Undo` — see [Rollback](#rollback).
 
+### How do I remove the script itself?
+Run `-Undo` first if you want your old settings back: it needs the undo files. Then delete what the script left: with the one-liner, `cpu-parking-disabler.ps1`, a `cpu-parking-disabler.ps1.bak` if there is one, and the `parking_undo_*.json` files (`.applied.json` once undone) in `%USERPROFILE%`; with the ZIP or a clone, the folder. From the PowerShell Gallery, the undo files sit in the folder `(Get-InstalledScript cpu-parking-disabler).InstalledLocation` prints; delete them, then run `Uninstall-Script cpu-parking-disabler`. The script installs nothing else: no service, scheduled task or background process.
+
 ## Related
 
 - [MSI Mode Utility](https://github.com/vadyaravadim/msi-mode-utility) — enable MSI mode (Message Signaled Interrupts) for GPU, USB, network & audio devices
@@ -242,6 +249,10 @@ Run the script with `-Undo` — see [Rollback](#rollback).
 - [Remove Hidden Devices](https://github.com/vadyaravadim/remove-hidden-devices) — remove ghost / hidden devices left behind by unplugged USB sticks, headsets & dongles cluttering Device Manager
 
 Same idea across the series: one transparent PowerShell script, no binaries, you see exactly what changes.
+
+## Disclaimer
+
+The script changes four settings of your active power scheme and writes an undo file first; `-Undo` puts them back, and `powercfg -restoredefaultschemes` resets every power scheme. Use at your own risk.
 
 ## License
 
