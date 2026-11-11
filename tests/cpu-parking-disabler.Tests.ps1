@@ -11,6 +11,7 @@ BeforeDiscovery {
         @{ Name = 'AMD Ryzen 7 9800X3D 8-Core Processor'; Cores = 8; Expect = 'none' }
         @{ Name = 'Intel(R) Core(TM) i9-14900F'; Cores = 24; Expect = 'none' }
     )
+    $script:isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 BeforeAll {
@@ -177,5 +178,70 @@ Describe 'the irm | iex rerun forwards a single mode switch to powershell.exe -F
         Set-Content -LiteralPath $stub -Value 'param([switch]$Status, [switch]$Undo) "Status=$Status Undo=$Undo"' -Encoding Ascii
         $code = @('param($Status, $Undo, $saved)', $forwarder.Extent.Text) + @($rerun | ForEach-Object { $_.Extent.Text })
         & ([scriptblock]::Create($code -join "`n")) $true $false $stub | Should -Be 'Status=True Undo=False'
+    }
+}
+
+Describe '-Status only reads' {
+    It 'shows the current state and leaves the undo branch alone when -Undo is given too' {
+        $copy = Join-Path $TestDrive 'cpu-parking-disabler.ps1'
+        Copy-Item -LiteralPath $scriptPath -Destination $copy
+        $hostExe = (Get-Process -Id $PID).Path
+        $output = & $hostExe -NoProfile -ExecutionPolicy Bypass -File $copy -Status -Undo | Out-String
+        $output | Should -Not -Match 'nothing to undo' -Because '-Status skips elevation, so it must never reach a branch that writes'
+        $output | Should -Match 'CPU\s+:'
+    }
+}
+
+Describe 'repeat run on an X3D with one V-Cache CCD' {
+    BeforeAll {
+        $script:copy = Join-Path $TestDrive 'cpu-parking-disabler.ps1'
+        Copy-Item -LiteralPath $scriptPath -Destination $copy
+        $script:stub = Join-Path $TestDrive 'powercfg.cmd'
+        $stubLines = @(
+            '@echo off'
+            'if /i "%~1"=="/getactivescheme" goto scheme'
+            'if /i "%~4"=="PERFEPP" goto zero'
+            'if /i "%~4"=="PERFEPP1" goto zero'
+            'echo     0x00000064'
+            'echo     0x00000064'
+            'exit /b 0'
+            ':scheme'
+            'echo Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)'
+            'exit /b 0'
+            ':zero'
+            'echo     0x00000000'
+            'echo     0x00000000'
+            'exit /b 0'
+        )
+        Set-Content -LiteralPath $stub -Value ($stubLines -join "`r`n") -Encoding Ascii
+        $script:savedPath = $env:PATH
+        $env:PATH = "$TestDrive;$env:PATH"
+        if ((Get-Command powercfg).Source -ne $stub) {
+            throw 'the powercfg stub is not first on PATH: the whole-script test would change this machine''s power settings'
+        }
+        Mock Get-CimInstance { 'mock reached' } -ParameterFilter { $ClassName -eq 'Win32_PesterMockProbe' }
+        $probe = Join-Path $TestDrive 'mock-probe.ps1'
+        Set-Content -LiteralPath $probe -Value 'Get-CimInstance Win32_PesterMockProbe -ErrorAction SilentlyContinue' -Encoding Ascii
+        $probeResult = $null
+        try { $probeResult = & $probe } catch { $probeResult = $null }
+        if ($probeResult -ne 'mock reached') {
+            throw 'Pester mocks do not reach a script run with &: the whole-script tests would touch this machine'
+        }
+    }
+
+    AfterAll {
+        $env:PATH = $savedPath
+    }
+
+    It 'says there is nothing to do without asking' -Skip:(-not $isAdmin) {
+        Mock Get-CimInstance { [pscustomobject]@{ Name = 'AMD Ryzen 9 7950X3D 16-Core Processor'; NumberOfCores = 16; NumberOfLogicalProcessors = 32 } } -ParameterFilter { $ClassName -eq 'Win32_Processor' }
+        Mock Get-CimInstance { }
+        Mock Read-Host { 'n' }
+        Mock Write-Host { }
+        Mock Set-ItemProperty { }
+        Mock Start-Sleep { }
+        & $copy
+        Should -Invoke Read-Host -Times 0 -Exactly -Because 'a run that will change nothing has nothing to confirm'
+        Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { "$Object" -like 'All values already at target*' }
     }
 }

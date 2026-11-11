@@ -10,6 +10,16 @@ section is empty or its compare link at the bottom is missing.
 
 ## [Unreleased]
 
+### Fixed
+
+- `-Status` together with `-Undo` did not just show the state: it skipped the admin check and went into the undo.
+  From an admin console it reverted your newest undo file; without admin rights it stopped with an access error
+  or said there was nothing to undo. `-Status` now wins, as the help says: it shows the state and changes
+  nothing.
+- On a Ryzen with 3D V-Cache on one of two CCDs (7900X3D, 7950X3D, 9900X3D, 9950X3D, 7945HX3D, 9955HX3D), a run
+  with every value already at target still asked "Continue anyway?" for a change it was not going to make. It
+  now says there is nothing to do without asking; the V-Cache note still shows.
+
 ### Changed
 
 - Releases are tagged only after every check has passed on the commit they are built from, and the

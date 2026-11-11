@@ -34,7 +34,9 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   written back as before.
 - **The run sits under `$MyInvocation.InvocationName -ne '.'`; tests dot-source the functions.** The
   `irm | iex` bootstrap stays above the helpers, so a piped run defines nothing beyond it in the caller's
-  session.
+  session. One test runs the whole script on a copy in `TestDrive` (the X3D prompt order): `powercfg` is a
+  stub on `PATH`, CIM and host prompts are mocked, it runs only elevated, and its `BeforeAll` first proves the
+  mocks reach a script started with `&`.
 - **A piped run saves the script into the user profile, not `%TEMP%`.** The undo file is written next to
   the script, so it has to sit somewhere that survives automatic temp cleanup.
 - **`Get-ForwardedSwitchList` is the ONE place mode switches are listed.** Both relaunch paths - the
@@ -63,9 +65,12 @@ return `$null` and drops the row; keep that silent, no "setting not found" warni
   every power state. `coreClass` in the result shows where the threads actually ran.
 - **`Get-X3DParkingNote` owns the X3D rule: a 12+ core X3D with V-Cache on one CCD gets the prompt, an X3D2
   a note only, a single-CCD part nothing.** In Game Mode AMD's chipset driver parks the CCD without V-Cache;
-  the X3D2 has V-Cache on both, so unparking cannot move a game off the cache.
+  the X3D2 has V-Cache on both, so unparking cannot move a game off the cache. The prompt comes after the
+  "all values already at target" check: a run that will change nothing asks nothing (1.3.2 and earlier asked
+  first).
 - **`-Status` skips elevation on purpose** - it only reads, and a UAC prompt for a read-only check is what
-  makes people stop checking.
+  makes people stop checking. It also wins over `-Undo`: the undo branch runs only without `-Status` (1.3.2 and
+  earlier reverted the newest undo file on `-Status -Undo`).
 
 ## The CI gates
 
