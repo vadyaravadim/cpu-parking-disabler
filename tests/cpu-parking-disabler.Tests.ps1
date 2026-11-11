@@ -29,6 +29,25 @@ BeforeAll {
         . ([scriptblock]::Create($fn.Extent.Text))
         Get-X3DParkingNote -Name $Name -Cores $Cores
     }
+
+    # A whole-script run (& $copy) may reach only this powercfg stub and Pester's
+    # mocks: each check throws before the run can touch this machine.
+    function Install-PowercfgStub([string[]]$Lines) {
+        $stub = Join-Path $TestDrive 'powercfg.cmd'
+        Set-Content -LiteralPath $stub -Value ($Lines -join "`r`n") -Encoding Ascii
+        $env:PATH = "$TestDrive;$env:PATH"
+        if ((Get-Command powercfg).Source -ne $stub) {
+            throw 'the powercfg stub is not first on PATH: the whole-script test would change this machine''s power settings'
+        }
+        Mock Get-CimInstance { 'mock reached' } -ParameterFilter { $ClassName -eq 'Win32_PesterMockProbe' }
+        $probe = Join-Path $TestDrive 'mock-probe.ps1'
+        Set-Content -LiteralPath $probe -Value 'Get-CimInstance Win32_PesterMockProbe -ErrorAction SilentlyContinue' -Encoding Ascii
+        $probeResult = $null
+        try { $probeResult = & $probe } catch { $probeResult = $null }
+        if ($probeResult -ne 'mock reached') {
+            throw 'Pester mocks do not reach a script run with &: the whole-script tests would touch this machine'
+        }
+    }
 }
 
 Describe 'X3D parking note' {
@@ -182,13 +201,48 @@ Describe 'the irm | iex rerun forwards a single mode switch to powershell.exe -F
 }
 
 Describe '-Status only reads' {
-    It 'shows the current state and leaves the undo branch alone when -Undo is given too' {
-        $copy = Join-Path $TestDrive 'cpu-parking-disabler.ps1'
+    BeforeAll {
+        $script:copy = Join-Path $TestDrive 'cpu-parking-disabler.ps1'
         Copy-Item -LiteralPath $scriptPath -Destination $copy
-        $hostExe = (Get-Process -Id $PID).Path
-        $output = & $hostExe -NoProfile -ExecutionPolicy Bypass -File $copy -Status -Undo | Out-String
-        $output | Should -Not -Match 'nothing to undo' -Because '-Status skips elevation, so it must never reach a branch that writes'
-        $output | Should -Match 'CPU\s+:'
+        $script:savedPath = $env:PATH
+        # Every value off target, so a run that went on past -Status would write
+        # all four; the stub logs every call it gets.
+        $script:callLog = Join-Path $TestDrive 'powercfg.log'
+        Install-PowercfgStub @(
+            '@echo off'
+            '>>"%~dp0powercfg.log" echo %*'
+            'if /i "%~1"=="/getactivescheme" goto scheme'
+            'echo     0x00000032'
+            'echo     0x00000032'
+            'exit /b 0'
+            ':scheme'
+            'echo Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)'
+            'exit /b 0'
+        )
+    }
+
+    AfterAll {
+        $env:PATH = $savedPath
+    }
+
+    It 'shows the current state, writes nothing and leaves the undo branch alone when -Undo is given too' {
+        Mock Get-CimInstance { [pscustomobject]@{ Name = 'Intel(R) Core(TM) i9-14900F'; NumberOfCores = 24; NumberOfLogicalProcessors = 32 } } -ParameterFilter { $ClassName -eq 'Win32_Processor' }
+        Mock Get-CimInstance { }
+        Mock Read-Host { 'n' }
+        Mock Write-Host { if ("$Object" -like 'ERROR:*') { "$Object" } }
+        Mock Start-Process { }
+        Mock Set-ItemProperty { }
+        Mock Remove-ItemProperty { }
+        Mock Start-Sleep { }
+        $output = & $copy -Status -Undo
+        ($output | Where-Object { "$_" -like 'ERROR:*' }) -join "`n" | Should -BeNullOrEmpty -Because 'the run must not end in the trap'
+        Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { "$Object" -like 'CPU *:*' }
+        Should -Invoke Write-Host -Times 0 -Exactly -ParameterFilter { "$Object" -like '*nothing to undo*' } -Because '-Status skips elevation, so it must never reach a branch that writes'
+        $calls = @(Get-Content -LiteralPath $callLog)
+        $calls | Should -Contain '/getactivescheme' -Because 'the run reads through the stub'
+        $calls -match '^/set' | Should -BeNullOrEmpty -Because '-Status skips elevation, so it must never reach a branch that writes'
+        Should -Invoke Set-ItemProperty -Times 0 -Exactly
+        Should -Invoke Start-Process -Times 0 -Exactly
     }
 }
 
@@ -196,8 +250,8 @@ Describe 'repeat run on an X3D with one V-Cache CCD' {
     BeforeAll {
         $script:copy = Join-Path $TestDrive 'cpu-parking-disabler.ps1'
         Copy-Item -LiteralPath $scriptPath -Destination $copy
-        $script:stub = Join-Path $TestDrive 'powercfg.cmd'
-        $stubLines = @(
+        $script:savedPath = $env:PATH
+        Install-PowercfgStub @(
             '@echo off'
             'if /i "%~1"=="/getactivescheme" goto scheme'
             'if /i "%~4"=="PERFEPP" goto zero'
@@ -213,20 +267,6 @@ Describe 'repeat run on an X3D with one V-Cache CCD' {
             'echo     0x00000000'
             'exit /b 0'
         )
-        Set-Content -LiteralPath $stub -Value ($stubLines -join "`r`n") -Encoding Ascii
-        $script:savedPath = $env:PATH
-        $env:PATH = "$TestDrive;$env:PATH"
-        if ((Get-Command powercfg).Source -ne $stub) {
-            throw 'the powercfg stub is not first on PATH: the whole-script test would change this machine''s power settings'
-        }
-        Mock Get-CimInstance { 'mock reached' } -ParameterFilter { $ClassName -eq 'Win32_PesterMockProbe' }
-        $probe = Join-Path $TestDrive 'mock-probe.ps1'
-        Set-Content -LiteralPath $probe -Value 'Get-CimInstance Win32_PesterMockProbe -ErrorAction SilentlyContinue' -Encoding Ascii
-        $probeResult = $null
-        try { $probeResult = & $probe } catch { $probeResult = $null }
-        if ($probeResult -ne 'mock reached') {
-            throw 'Pester mocks do not reach a script run with &: the whole-script tests would touch this machine'
-        }
     }
 
     AfterAll {
