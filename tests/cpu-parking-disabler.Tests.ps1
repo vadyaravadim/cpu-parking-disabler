@@ -179,3 +179,14 @@ Describe 'the irm | iex rerun forwards a single mode switch to powershell.exe -F
         & ([scriptblock]::Create($code -join "`n")) $true $false $stub | Should -Be 'Status=True Undo=False'
     }
 }
+
+Describe '-Status only reads' {
+    It 'shows the current state and leaves the undo branch alone when -Undo is given too' {
+        $copy = Join-Path $TestDrive 'cpu-parking-disabler.ps1'
+        Copy-Item -LiteralPath $scriptPath -Destination $copy
+        $hostExe = (Get-Process -Id $PID).Path
+        $output = & $hostExe -NoProfile -ExecutionPolicy Bypass -File $copy -Status -Undo | Out-String
+        $output | Should -Not -Match 'nothing to undo' -Because '-Status skips elevation, so it must never reach a branch that writes'
+        $output | Should -Match 'CPU\s+:'
+    }
+}
