@@ -83,7 +83,7 @@ Calling `.\cpu-parking-disabler.ps1` directly only works if your execution polic
 4. **Sets EPP to max performance** — CPU favors performance over power saving
 5. **Shows the parked-core count again** — the effect is on screen, not taken on trust
 
-That's it. No other settings are touched. Your current power scheme is modified in-place, for both AC and battery; on a laptop the run says so at the end. A second run on an already-tweaked machine changes nothing and writes no undo file.
+That's it. No other power settings change. The four settings also show up under Power Options, Processor power management, and stay there (see [Settings Changed](#settings-changed)). Your current power scheme is modified in-place, for both AC and battery; on a laptop the run says so at the end. A second run on an already-tweaked machine changes nothing and writes no undo file.
 
 A full one-liner run on our i9-14900F on Windows' default Balanced plan, started from an admin terminal, so no new window opened (2026-11-07, also in [`bench/results/testbed-checks/sample-run.txt`](bench/results/testbed-checks/sample-run.txt)):
 
@@ -146,7 +146,7 @@ Resource Monitor, CPU tab, on the same PC: seconds before the run above and a mi
 | `PERFEPP` | Energy Performance Preference (E-cores / all cores) | 33 | **0** |
 | `PERFEPP1` | Energy Performance Preference (P-cores, hybrid CPUs) | 33 | **0** |
 
-> `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings. They only matter on hybrid CPUs (Intel chips with E-cores, 12th gen and newer); on other CPUs Windows ignores them. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless.
+> `CPMINCORES1` and `PERFEPP1` are Class 1 (P-core) settings. They only matter on hybrid CPUs (Intel chips with E-cores, 12th gen and newer); on other CPUs Windows ignores them. The script unhides all four via registry before applying values; they stay visible under Power Options → Processor power management afterwards, which is harmless. `-Undo` puts the values back but leaves them visible.
 
 ## The Problem: Parked Cores and Bursty Load
 
@@ -178,7 +178,7 @@ Parking is real on a stock desktop, and the script makes idle threads wake up ab
 .\Run.bat -Undo
 ```
 
-([Other install methods](#quick-start) pass the switch differently.) Puts back what the newest `parking_undo_*.json` recorded, on the power scheme it came from: a value you had set yourself is written back, and a setting that was following Windows' default goes back to that default. The file is then renamed to `.applied.json`. Undo files are per-run snapshots: after several runs, run `-Undo` once per run, newest to oldest — only the oldest holds the original state.
+([Other install methods](#quick-start) pass the switch differently.) Puts back what the newest `parking_undo_*.json` recorded, on the power scheme it came from: a value you had set yourself is written back, and a setting that was following Windows' default goes back to that default. The four settings stay visible in Power Options. The file is then renamed to `.applied.json`. Undo files are per-run snapshots: after several runs, run `-Undo` once per run, newest to oldest — only the oldest holds the original state.
 
 **Full reset to Windows defaults.** Simplest, but it resets *all* power schemes and deletes custom plans:
 ```powershell

@@ -29,6 +29,8 @@ section is empty or its compare link at the bottom is missing.
 - On a Ryzen with 3D V-Cache on one of two CCDs (7900X3D, 7950X3D, 9900X3D, 9950X3D, 7945HX3D, 9955HX3D), a run
   with every value already at target still asked "Continue anyway?" for a change it was not going to make. It
   now says there is nothing to do without asking; the V-Cache note still shows.
+- The README said a run touches no other settings. It also makes the four processor settings visible in Power
+  Options, and `-Undo` leaves them visible. The README now says so where it describes the run and the undo.
 
 ### Changed
 
