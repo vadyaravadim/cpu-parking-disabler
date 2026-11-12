@@ -10,6 +10,8 @@ section is empty or its compare link at the bottom is missing.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-12
+
 ### Added
 
 - Each release also carries `cpu-parking-disabler.ps1.sigstore.json`, the script's signed build provenance, as
@@ -290,7 +292,8 @@ section is empty or its compare link at the bottom is missing.
   newer for the hybrid path - and on AMD Ryzen 5000, 7000 and 9000. Nothing to install and no
   dependencies beyond what Windows already ships.
 
-[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/vadyaravadim/cpu-parking-disabler/compare/v1.2.1...v1.3.0
