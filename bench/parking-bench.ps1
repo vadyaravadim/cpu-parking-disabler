@@ -770,6 +770,7 @@ if ($MyInvocation.InvocationName -ne '.') {
                 if (-not $Load) { throw '-Test game needs -Load <name> (a file in bench\loads).' }
                 if (-not $PresentMon) { throw '-Test game needs -PresentMon <path to the pinned PresentMon exe>.' }
                 $recipe = Get-LoadRecipe -Name $Load
+                $presentMonSha = Get-PresentMonSha256 -PresentMonPath $PresentMon -ExpectedSha256 $recipe.presentMon.sha256
                 if ($FpsMax -gt 0) {
                     if (-not $recipe.cap -or -not $recipe.startMarker) { throw "$Load.json has no cap recipe, so -FpsMax cannot be used with it." }
                     Assert-CapOffRefresh -FpsMax $FpsMax -RefreshHz (Get-MonitorRefreshHz)
@@ -785,7 +786,7 @@ if ($MyInvocation.InvocationName -ne '.') {
                 $loadRecord = Get-LoadRecord -Recipe $recipe -Name $Load -Process $proc
                 if ($counter) { $counter.StartSampling(250) }
                 $ppmStart = Get-Date
-                $capture = Invoke-PresentMonCapture -PresentMonPath $PresentMon -ProcessName $recipe.presentMonProcess -OutputFile "$base-presentmon.csv" -Seconds $recipe.timings.captureSeconds -ExpectedSha256 $recipe.presentMon.sha256
+                $capture = Invoke-PresentMonCapture -PresentMonPath $PresentMon -ProcessName $recipe.presentMonProcess -OutputFile "$base-presentmon.csv" -Seconds $recipe.timings.captureSeconds -PresentMonSha256 $presentMonSha
                 $result.ppm = Complete-BenchPpm -Trace $ppmTrace -Start $ppmStart -End (Get-Date)
                 $files.Add("$base-presentmon.csv")
                 $parked = @()
