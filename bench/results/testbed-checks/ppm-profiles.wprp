@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WindowsPerformanceRecorder Version="1.0" Author="RigPolice">
+  <Profiles>
+    <EventCollector Id="EC_Ppm" Name="PPM profile collector">
+      <BufferSize Value="64"/>
+      <Buffers Value="64"/>
+    </EventCollector>
+    <EventProvider Id="EP_KernelProcessorPower" Name="0f67e49f-fe51-4e9f-b490-6f2948cc6027" NonPagedMemory="true">
+      <Keywords>
+        <Keyword Value="0x40"/>
+      </Keywords>
+      <CaptureStateOnStart>
+        <Keyword Value="0xC4"/>
+      </CaptureStateOnStart>
+      <CaptureStateOnSave>
+        <Keyword Value="0xC4"/>
+      </CaptureStateOnSave>
+    </EventProvider>
+    <Profile Id="PpmProfiles.Verbose.File" Name="PpmProfiles" Description="KPP profile changes plus profile and per-CPU perf rundowns" LoggingMode="File" DetailLevel="Verbose">
+      <Collectors>
+        <EventCollectorId Value="EC_Ppm">
+          <EventProviders>
+            <EventProviderId Value="EP_KernelProcessorPower"/>
+          </EventProviders>
+        </EventCollectorId>
+      </Collectors>
+    </Profile>
+  </Profiles>
+</WindowsPerformanceRecorder>

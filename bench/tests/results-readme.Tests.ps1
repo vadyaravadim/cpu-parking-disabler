@@ -109,6 +109,13 @@ BeforeAll {
         [Convert]::ToInt32($m.Groups[1].Value, 16)
     }
 
+    function Get-PpmProfileRow {
+        $capture = Get-Content -Path (Join-Path $checksDir 'ppm-profiles.txt') -Raw
+        @([regex]::Matches($capture, '(?m)^\s*(\d+)\s+(\w+)\s+([0-9a-f-]{36})\r?$') | ForEach-Object {
+                [pscustomobject]@{ id = [int]$_.Groups[1].Value; name = $_.Groups[2].Value; guid = $_.Groups[3].Value }
+            })
+    }
+
     function Get-GitShowBytes([string]$Spec) {
         $info = [Diagnostics.ProcessStartInfo]::new('git', "show $Spec")
         $info.WorkingDirectory = $repoRoot
@@ -265,6 +272,20 @@ Describe 'bench/results/README.md matches the parking-retest files' {
         $cs2 = Get-Content -Path (Join-Path $PSScriptRoot '..\loads\cs2.json') -Raw | ConvertFrom-Json
         $cs2.workshop.title | Should -Not -BeNullOrEmpty
         $resultsReadme.Contains(('Workshop map {0} ({1})' -f $cs2.workshop.id, $cs2.workshop.title)) | Should -BeTrue
+    }
+
+    It 'quotes the profile count and the Default and GameMode ids from ppm-profiles.txt' {
+        $rows = @(Get-PpmProfileRow)
+        $default = @($rows | Where-Object { $_.name -eq 'Default' })
+        $gameMode = @($rows | Where-Object { $_.name -eq 'GameMode' })
+        $default.Count | Should -Be 1
+        $gameMode.Count | Should -Be 1
+        $quote = '{0} of them, with the id, name and GUID of each' -f $rows.Count
+        $resultsReadme.Contains($quote) | Should -BeTrue -Because "bench/results/README.md should hold '$quote'"
+        $ids = 'id {0} is `Default` and' -f $default[0].id
+        $resultsReadme.Contains($ids) | Should -BeTrue -Because "bench/results/README.md should hold '$ids'"
+        [regex]::IsMatch($resultsReadme, ('and\s+id {0} is `GameMode`' -f $gameMode[0].id)) | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $checksDir 'ppm-profiles.wprp') | Should -BeTrue
     }
 
     It 'names every setting the <_> overlay carries in its /qh capture' -ForEach @('max', 'min') {
