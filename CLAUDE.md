@@ -175,6 +175,21 @@ hand-edited value that disagrees with the tag would only mislead whoever reads t
 prints `dev build` for `0.0.0`, the stamped tag otherwise. It used to be `1.0.0`, which is also a real tag,
 so a clone of `main` was indistinguishable from the v1.0.0 release.
 
+## The series table
+
+- **`bench/tools/Get-ParkingSeriesTable.ps1` is the only reader of a series' outcomes:** every published
+  number of `parking-retest-2` and `parking-retest-2-ceiling` is its output, built under PowerShell 7 and never
+  edited by hand. `-ChecksOnly` prints the validity checks alone; run it first.
+- **`bench/results/parking-retest-2.rules.md` was committed before the series ran.** Its "Pre-registered
+  comparisons" section is `Format-RulesBlock` verbatim (`parking-rules.Tests.ps1`), so a rule changes in the
+  script and that file together, and once a series has run only as a dated entry under `## Amendments`,
+  written before the outcome it affects is read.
+- **Every recorded number goes through `ConvertTo-WrittenDecimal` and stays `[decimal]`:** the two engines
+  parse and round doubles differently.
+- **`bench/tools/series-lib.ps1` and its tests are byte-identical with msi-mode-utility** (the `sync` job): a
+  change lands in both repos.
+- **`Get-GameModeError` mirrors the private runner's Game Mode check;** change both together.
+
 ## README claims
 
 **The README claims only what a published measurement shows** (the companion article, `bench/results`).
