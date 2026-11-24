@@ -174,6 +174,10 @@ Windows gives it the same 4% minimum as Balanced, and at idle it parked 31 of 32
   woke up.
 - `status-balanced-<n>.txt`, `status-high-performance-<n>.txt`: the output of `cpu-parking-disabler.ps1 -Status` after
   the samples of each plan in each round, from a development build of the script.
+- `ppm-profiles.txt`, `ppm-profiles.wprp`: the processor power profiles Windows listed on this PC on 2026-11-24
+  (build 26300.9818), 14 of them, with the id, name and GUID of each, and the Windows Performance Recorder profile
+  and commands that read them. A bench result records a profile as its id only; on this PC id 0 is `Default` and
+  id 12 is `GameMode`.
 - `sample-run.txt`: the run quoted in the main README. The published v1.3.2 one-liner, started from an admin terminal
   on Balanced after 120 s of idle. The user folder is shown as `you`.
 - `sample-undo.txt`: `-Undo` of that run, from the saved copy of the script.

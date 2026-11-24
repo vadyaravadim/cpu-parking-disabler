@@ -1,0 +1,30 @@
+Processor power management (PPM) profiles of the test PC, read 2026-11-24.
+Windows 11 build 26300.9818, i9-14900F, elevated Windows PowerShell.
+
+Commands (ppm-profiles.wprp is the file next to this one):
+
+  wpr -start ppm-profiles.wprp!PpmProfiles -filemode -recordtempto <folder> -instancename rigpolice-ppm-rundown
+  wpr -stop rundown.etl -skipPdbGen -instancename rigpolice-ppm-rundown
+
+The trace ran for 5 s. The profile turns on capture state for the provider
+Microsoft-Windows-Kernel-Processor-Power, so Windows writes one event 103 per profile
+when the trace starts and one when it is saved. Both sets listed the same 14 profiles.
+The table is fields 0 (name), 1 (id) and 4 (GUID) of event 103, read with Get-WinEvent.
+The ETL file is not published.
+
+id  name            GUID
+--  --------------  ------------------------------------
+ 0  Default         00000000-0000-0000-0000-000000000000
+ 1  SustainedPerf   0aabb002-a307-447e-9b81-1d819df6c6d0
+ 2  MultimediaQos   0c3d5326-944b-4aab-8ad8-fe422a0e50e0
+ 3  LowLatency      0da965dc-8fcf-4c0b-8efe-8dd5e7bc959a
+ 4  ScreenOff       2e92e666-c3f6-42c3-89bd-94d40fabcde5
+ 5  EcoQos          336c7511-f109-4172-bb3a-3ea51f815ada
+ 6  UtilityQos      33cc3a0d-45ee-43ca-86c4-695bfc9a313b
+ 7  LowPower        4569e601-272e-4869-bcab-1c6c03d7966f
+ 8  Standby         8bc6262c-c026-411d-ae3b-7e2f70811a13
+ 9  EntryLevelPerf  a4a61b5f-f42c-4d23-b3ab-5c27df9f0f18
+10  HighDrain       b025fe59-79f4-4e38-b142-bcc62c7ecc32
+11  Background      c04a802d-2205-4910-ae98-3b51e3bb72f2
+12  GameMode        d4140c81-ebba-4e60-8561-6918290359cd
+13  Constrained     ee1e4f72-e368-46b1-b3c6-5048b11c2dbd
