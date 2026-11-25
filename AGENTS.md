@@ -1,6 +1,6 @@
 # CPU Parking Disabler
 
-Maintainer notes for Claude Code and the maintainer. Contributors start with [CONTRIBUTING.md](https://github.com/vadyaravadim/.github/blob/main/CONTRIBUTING.md); `rigpolice`, named below, is the maintainer's private website repository.
+Maintainer notes for coding agents and the maintainer. Contributors start with [CONTRIBUTING.md](https://github.com/vadyaravadim/.github/blob/main/CONTRIBUTING.md); `rigpolice`, named below, is the maintainer's private website repository.
 
 A single self-contained PowerShell script (`cpu-parking-disabler.ps1`) that disables CPU core parking
 (`CPMINCORES` / `CPMINCORES1` = 100) and pins Energy Performance Preference (`PERFEPP` / `PERFEPP1` = 0) on
@@ -196,7 +196,7 @@ so a clone of `main` was indistinguishable from the v1.0.0 release.
 An effect nobody measured, on frame times, DPC latency, stutter or input lag, is attributed to the guides
 that recommend the tweak or marked as not measured, never stated as fact, and the star ask names no
 effect. Frame time and ISR/DPC time are not input lag. The method lives in rigpolice's
-`.claude/rules/bench-methodology.md`, section "Conclusions".
+`bench-methodology.md`, section "Conclusions".
 
 **`results-readme.Tests.ps1` turns every recorded number into a decimal with `ConvertTo-WrittenDecimal`
 (`bench/bench-env.ps1`, shared with msi-mode-utility), never with a `[decimal]` cast or `Measure-Object`.**
