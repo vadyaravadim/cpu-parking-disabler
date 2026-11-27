@@ -110,4 +110,19 @@ These rules were fixed in this script before any outcome of the series was read.
 
 ## Amendments
 
-None.
+- 2026-11-25, recorded before any outcome was read: the first `parking-retest-2` start stopped in boot 0 after the
+  Office ClickToRun Service Monitor re-enabled `ClickToRunSvc` and two consecutive attempts failed the preflight. The
+  runner restored the system. No boot was accepted and no outcome was read. The attempt was set aside as
+  `parking-retest-2-aborted-20261125`, the nine `\Microsoft\Office\` tasks joined the runner's disabled set, and the same
+  plan and bench script were restarted from boot 0. The comparisons and statistical rules did not change.
+- 2026-11-27, before the top-up was measured and before any outcome was read: original ceiling boot 0 lost the
+  `maxcores25-min` versus `maxcores25` burst pair under the already registered `ppm.captureChanges` exclusion, leaving
+  five pairs. Exactly one one-boot series named `parking-retest-2-ceiling-topup` repeats the six states of original
+  ceiling boot 0 in the same order and settings. The original and top-up raw series stay separate and immutable. Every
+  existing validity, homogeneity and exclusion gate applies across both series, including the four top-up steps whose
+  outcomes are not reported. Only the within-top-up `maxcores25-min` versus `maxcores25` burst pair joins the sole
+  pre-registered ceiling tested row, as analysis-only boot 6. No top-up outcome joins a described comparison, state
+  table, testbed summary, file map or another test. If that pair is excluded, the row reports five pairs and no further
+  top-up is permitted. The ceiling family still contains one tested row; Holm and every statistical rule stay unchanged.
+  An ordinary runner retry of a failed boot follows the existing failed-boot rules, but another accepted or substitute
+  top-up series is prohibited after its validity or exclusion status is known.

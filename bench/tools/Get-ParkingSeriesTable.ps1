@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory)][string]$SeriesPath,
     [string]$MarkdownPath,
     [string]$SummaryPath,
+    [string]$TopUpSeriesPath,
     [switch]$ChecksOnly
 )
 
@@ -116,6 +117,9 @@ $timestampFormat = 's'
 $noPublicReason = 'no public reason'
 $noParkedReason = 'no parked-core reading'
 $everyRowScope = 'every row and state table'
+$topUpScope = 'ceiling top-up tested pair only'
+$ceilingTopUpSeriesName = 'parking-retest-2-ceiling-topup'
+$topUpPlanFields = @('benchPath', 'settleSeconds', 'load', 'loadBuild', 'captureSeconds', 'allow', 'gameModeProfileId')
 $noBootNote = 'no boot holds every step this row pairs'
 $rowNameFormat = '{0}: {1}'
 $ceilingLabel = '(forced: the ceiling)'
@@ -709,10 +713,12 @@ function Format-RulesBlock {
 }
 
 function New-SeriesReport {
-    param([Parameter(Mandatory)][string]$SeriesPath, [switch]$ChecksOnly)
+    param([Parameter(Mandatory)][string]$SeriesPath, [string]$TopUpSeriesPath, [switch]$ChecksOnly)
     $plan = Read-Json -Path (Join-Path $SeriesPath 'plan.json') -Where 'plan.json'
     $journal = Read-Journal -Path (Join-Path $SeriesPath 'journal.jsonl')
     $series = [string](Get-Field $plan 'series' 'plan.json')
+    if ($series -ceq $ceilingTopUpSeriesName) { throw "the top-up series cannot be used as SeriesPath; use it as TopUpSeriesPath of parking-retest-2-ceiling" }
+    if ($TopUpSeriesPath -and $series -cne 'parking-retest-2-ceiling') { throw "a top-up is valid only with parking-retest-2-ceiling" }
     $profileId = [int](Get-Field $plan 'gameModeProfileId' 'plan.json')
     $accepted = @(Get-AcceptedResult -Plan $plan -Journal $journal)
     $events = @($journal | Where-Object { $_.event -eq 'boot' -and $_.outcome -eq 'success' })
@@ -754,8 +760,70 @@ function New-SeriesReport {
     foreach ($step in $steps) { $step.Excluded = Get-StepExclusion -Step $step -ProfileId $profileId }
     foreach ($step in @($steps | Where-Object { -not $_.Excluded })) { Assert-StepField -Step $step }
     $labels = @($units.Keys | Where-Object { @($steps | ForEach-Object { $_.Label }) -contains $_ })
-    $rows = @(Get-ComparisonRow -Labels $labels -Steps $steps)
-    $leftOut = @($steps | Where-Object { $_.Excluded } | ForEach-Object { [pscustomobject][ordered]@{ boot = $_.Boot; stateIndex = $_.StateIndex; state = $_.Label; step = $_.Step; reason = $_.Excluded; leftOutOf = @($everyRowScope) } })
+    $baseRows = @(Get-ComparisonRow -Labels $labels -Steps $steps)
+    $rows = $baseRows
+    $analysisSteps = @($steps)
+    $topUpProvenance = $null
+    if ($TopUpSeriesPath) {
+        $baseTested = @($baseRows | Where-Object { $_.Comparison.tested })
+        if ($baseTested.Count -ne 1 -or $baseTested[0].Pairs.Count -ne 5) { throw "top-up requires the base ceiling burst row to hold 5 pairs, found $($baseTested[0].Pairs.Count)" }
+        $basePairBoots = @($baseTested[0].Pairs | ForEach-Object { $_.Boot })
+        if (($basePairBoots -join ',') -cne '1,2,3,4,5') { throw "top-up requires original ceiling boot 0 to be the missing tested pair" }
+        $registeredExclusion = @($steps | Where-Object { $_.Boot -eq 0 -and $_.Step -eq $burstStep -and $_.Label -in @('maxcores25', 'maxcores25-min') -and $_.Excluded -match 'ppm captureChanges' })
+        if ($registeredExclusion.Count -eq 0) { throw "top-up requires original ceiling boot 0 to have the registered ppm.captureChanges exclusion" }
+        $topUpPlan = Read-Json -Path (Join-Path $TopUpSeriesPath 'plan.json') -Where 'top-up plan.json'
+        if ([string]$topUpPlan.series -cne $ceilingTopUpSeriesName) { throw "top-up series is '$($topUpPlan.series)', expected '$ceilingTopUpSeriesName'" }
+        if (@($topUpPlan.boots).Count -ne 1) { throw "top-up plan.json lists $(@($topUpPlan.boots).Count) boots, expected 1 boot" }
+        foreach ($field in $topUpPlanFields) {
+            $expectedValue = ConvertTo-FingerprintValue (Get-Field $plan $field 'plan.json')
+            $actualValue = ConvertTo-FingerprintValue (Get-Field $topUpPlan $field 'top-up plan.json')
+            if ($actualValue -cne $expectedValue) { throw "top-up plan field $field differs: '$actualValue' against '$expectedValue'" }
+        }
+        $baseStates = @($plan.boots[0].states)
+        $topUpStates = @($topUpPlan.boots[0].states)
+        if ($topUpStates.Count -ne $baseStates.Count) { throw "top-up boot 0 state order differs: $($topUpStates.Count) states against $($baseStates.Count)" }
+        for ($index = 0; $index -lt $baseStates.Count; $index++) {
+            $expectedState = ConvertTo-FingerprintValue $baseStates[$index]
+            $actualState = ConvertTo-FingerprintValue $topUpStates[$index]
+            if ($actualState -cne $expectedState) { throw "top-up boot 0 state order differs at index $index" }
+        }
+        $topUpJournal = Read-Journal -Path (Join-Path $TopUpSeriesPath 'journal.jsonl')
+        $topUpAccepted = @(Get-AcceptedResult -Plan $topUpPlan -Journal $topUpJournal)
+        $topUpEvents = @($topUpJournal | Where-Object { $_.event -eq 'boot' -and $_.outcome -eq 'success' })
+        $topUpRawSteps = @($topUpAccepted | ForEach-Object { Read-StepData -SeriesPath $TopUpSeriesPath -Accepted $_ -Events $topUpEvents })
+        foreach ($step in $topUpRawSteps) { Assert-StepState -Step $step -Plan $topUpPlan }
+        foreach ($group in @($topUpRawSteps | Group-Object -Property { "$($_.Boot)|$($_.Label)|$($_.Step)" } | Where-Object { $_.Count -gt 1 })) {
+            $first = $group.Group[0]
+            throw "top-up boot $($first.Boot) holds the $($first.Label) $($first.Step) step $($group.Count) times"
+        }
+        foreach ($step in $topUpRawSteps) {
+            $fingerprint = Get-StepFingerprint -Step $step
+            foreach ($field in $fingerprint.Keys) {
+                if (-not $firstSeen.ContainsKey($field)) { throw "top-up boot $($step.Boot) state $($step.StateIndex) field $field has no base value" }
+                $seen = $firstSeen[$field]
+                if ($fingerprint[$field] -cne $seen.Value) {
+                    throw ("top-up boot {0} state {1} field {2} differs from base boot {3} state {4}: '{5}' against '{6}'" -f $step.Boot, $step.StateIndex, $field, $seen.Step.Boot, $seen.Step.StateIndex, $fingerprint[$field], $seen.Value)
+                }
+            }
+        }
+        foreach ($step in $topUpRawSteps) { $step.Excluded = Get-StepExclusion -Step $step -ProfileId $profileId }
+        foreach ($step in @($topUpRawSteps | Where-Object { -not $_.Excluded })) { Assert-StepField -Step $step }
+        $selected = @($topUpRawSteps | Where-Object { $_.Step -eq $burstStep -and $_.Label -in @('maxcores25', 'maxcores25-min') })
+        if ($selected.Count -ne 2) { throw "top-up must hold one maxcores25 burst and one maxcores25-min burst" }
+        $projected = @($selected | ForEach-Object {
+                $clone = $_ | Select-Object *, @{ Name = 'TopUp'; Expression = { $true } }
+                $clone.Boot = $bootCount
+                $clone
+            })
+        $analysisSteps = @($steps) + $projected
+        $rows = @(Get-ComparisonRow -Labels $labels -Steps $analysisSteps)
+        $topUpProvenance = [pscustomobject][ordered]@{ series = $ceilingTopUpSeriesName; rawBoot = 0; analysisBoot = $bootCount; labels = @('maxcores25', 'maxcores25-min'); step = $burstStep }
+    }
+    $leftOut = @($analysisSteps | Where-Object { $_.Excluded } | ForEach-Object {
+            $scope = @($everyRowScope)
+            if ($_.PSObject.Properties['TopUp']) { $scope = @($topUpScope) }
+            [pscustomobject][ordered]@{ boot = $_.Boot; stateIndex = $_.StateIndex; state = $_.Label; step = $_.Step; reason = $_.Excluded; leftOutOf = $scope }
+        })
     $noParked = @(foreach ($row in $rows) { foreach ($step in $row.NoParked) { [pscustomobject]@{ Step = $step; Row = $rowNameFormat -f $row.Name, $row.Metric } } })
     foreach ($group in @($noParked | Group-Object -Property { "$($_.Step.Boot)|$($_.Step.StateIndex)" })) {
         $step = $group.Group[0].Step
@@ -873,6 +941,10 @@ function New-SeriesReport {
         $md.AddRange([string[]]@(Format-MarkdownTable -Header 'Boot', 'State', 'Step', 'Reason', 'Left out of' -Rows @($excluded | ForEach-Object { , @($_.boot, (Format-StateLabel $_.state), $_.step, $_.reason, ($_.leftOutOf -join '; ')) })))
     }
     else { $md.Add('No step was left out.') }
+    if ($topUpProvenance) {
+        $md.Add('')
+        $md.Add("Ceiling top-up: raw boot 0 of $ceilingTopUpSeriesName is analysis-only boot $bootCount; only its maxcores25 and maxcores25-min burst steps join the pre-registered ceiling test.")
+    }
 
     $summary = [ordered]@{ series = $series; constants = $constants; checks = $checks; testbed = $testbed; analysis = [ordered]@{} }
     if ($ChecksOnly) {
@@ -883,10 +955,11 @@ function New-SeriesReport {
         $md.Add('')
         $md.AddRange([string[]]@(Format-MarkdownTable -Header 'Comparison', 'Metric', 'Boots' -Rows @($rows | Where-Object { $_.Comparison.tested } | ForEach-Object { , @((Get-ComparisonName -Comparison $_.Comparison -Labelled), $metrics[$_.Metric].label, $_.Pairs.Count) })))
         $summary.analysis = [ordered]@{ excluded = $excluded; failedAttempts = $failedAttempts; profileChanges = $profileChanges; rowBoots = $rowBoots }
+        if ($topUpProvenance) { $summary.analysis.topUp = $topUpProvenance }
         return [pscustomobject]@{ Markdown = ($md -join "`n") + "`n"; Summary = [pscustomobject]$summary }
     }
 
-    $analysis = Get-PairedAnalysis -Labels $labels -Steps $steps
+    $analysis = Get-PairedAnalysis -Labels $labels -Steps $analysisSteps
     $kept = @($steps | Where-Object { -not $_.Excluded })
     $states = @(foreach ($label in $labels) {
             foreach ($stepName in $units[$label].steps) {
@@ -909,6 +982,7 @@ function New-SeriesReport {
         [ordered]@{ table = 'State labels, power values, Game Mode and cap'; files = 'plan.json'; fields = 'boots[].states[]'; runner = $true }
     ) | ForEach-Object { [pscustomobject]$_ }
     $summary.analysis = [ordered]@{ family = $analysis.family; tests = $analysis.tests; described = $analysis.described; excluded = $excluded; failedAttempts = $failedAttempts; profileChanges = $profileChanges }
+    if ($topUpProvenance) { $summary.analysis.topUp = $topUpProvenance }
     $summary.states = $states
     $summary.fileMap = $fileMap
 
@@ -1010,7 +1084,7 @@ function New-SeriesReport {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    $report = New-SeriesReport -SeriesPath $SeriesPath -ChecksOnly:$ChecksOnly
+    $report = New-SeriesReport -SeriesPath $SeriesPath -TopUpSeriesPath $TopUpSeriesPath -ChecksOnly:$ChecksOnly
     if ($MarkdownPath) { Write-TextFile -Path $MarkdownPath -Text $report.Markdown } else { $report.Markdown }
     if ($SummaryPath) { Write-TextFile -Path $SummaryPath -Text ((ConvertTo-Json -InputObject $report.Summary -Depth 12) + "`n") }
 }
