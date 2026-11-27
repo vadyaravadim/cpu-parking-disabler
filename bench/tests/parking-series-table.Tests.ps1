@@ -272,6 +272,106 @@ Describe 'a pre-registered series' {
     }
 }
 
+Describe 'a ceiling top-up' {
+    BeforeAll {
+        $script:topupReference = [decimal]'1000.01'
+        $script:topupState = [decimal]'990.005'
+        $script:topupBase = New-Series -Root (Join-Path $TestDrive 'topup-base') -Series 'parking-retest-2-ceiling' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 6 -Mutate {
+            param($ctx)
+            if ($ctx.Boot -eq 0 -and $ctx.Label -eq 'maxcores25' -and $ctx.Step -eq 'burst') { $ctx.Bench.ppm.captureChanges = 1 }
+        }
+        $script:topupSeries = New-Series -Root (Join-Path $TestDrive 'topup-series') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1 -Mutate {
+            param($ctx)
+            if ($ctx.Label -eq 'maxcores25' -and $ctx.Step -eq 'burst') { $ctx.Bench.burst.lastWorkerWakeMs.median = $topupReference }
+            if ($ctx.Label -eq 'maxcores25-min' -and $ctx.Step -eq 'burst') { $ctx.Bench.burst.lastWorkerWakeMs.median = $topupState }
+        }
+    }
+    It 'adds only the top-up pair to the ceiling burst test' {
+        $base = New-SeriesReport -SeriesPath $topupBase
+        $report = New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $topupSeries
+        $row = Get-Test $report 'maxcores25-min vs maxcores25' 'lastWorkerWakeMs'
+        @($row.boots).Count | Should -Be 6
+        $row.boots[-1] | Should -Be 6
+        $row.differences[-1] | Should -Be ([decimal]'-10.005')
+        @((Get-State $report 'maxcores25' 'burst').boots).Count | Should -Be 5
+        @((Get-State $report 'maxcores25-min' 'burst').boots).Count | Should -Be 6
+        (ConvertTo-Json $report.Summary.analysis.described -Depth 12) | Should -Be (ConvertTo-Json $base.Summary.analysis.described -Depth 12)
+        (ConvertTo-Json $report.Summary.states -Depth 12) | Should -Be (ConvertTo-Json $base.Summary.states -Depth 12)
+        (ConvertTo-Json $report.Summary.fileMap -Depth 12) | Should -Be (ConvertTo-Json $base.Summary.fileMap -Depth 12)
+        (ConvertTo-Json $report.Summary.testbed -Depth 12) | Should -Be (ConvertTo-Json $base.Summary.testbed -Depth 12)
+    }
+    It 'prints only the restored pair count at the checks-only entry point' {
+        $md = Join-Path $TestDrive 'topup-entry.md'
+        $json = Join-Path $TestDrive 'topup-entry.json'
+        & $tool -SeriesPath $topupBase -TopUpSeriesPath $topupSeries -ChecksOnly -MarkdownPath $md -SummaryPath $json
+        $text = Get-Content -Raw $md
+        $text | Should -Match '\| maxcores25-min \(forced: the ceiling\) vs maxcores25 \(forced: the ceiling\) \| Burst wake, median of the run \(ms\) \| 6 \|'
+        $text | Should -Match 'top-up'
+        $text | Should -Not -Match ([regex]::Escape([string]$topupReference))
+        $text | Should -Not -Match ([regex]::Escape([string]$topupState))
+        (Get-Content -Raw $json) | Should -Not -Match ([regex]::Escape([string]$topupState))
+    }
+    It 'authorizes only the registered original boot 0 exclusion' {
+        $wrongBoot = New-Series -Root (Join-Path $TestDrive 'topup-wrong-boot') -Series 'parking-retest-2-ceiling' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 6 -Mutate {
+            param($ctx)
+            if ($ctx.Boot -eq 1 -and $ctx.Label -eq 'maxcores25' -and $ctx.Step -eq 'burst') { $ctx.Bench.ppm.captureChanges = 1 }
+        }
+        { New-SeriesReport -SeriesPath $wrongBoot -TopUpSeriesPath $topupSeries -ChecksOnly } | Should -Throw '*original ceiling boot 0*'
+        $noParkedBase = New-Series -Root (Join-Path $TestDrive 'topup-no-parked-base') -Series 'parking-retest-2-ceiling' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 6 -Mutate {
+            param($ctx)
+            if ($ctx.Boot -eq 0 -and $ctx.Label -eq 'maxcores25' -and $ctx.Step -eq 'burst') { $ctx.Bench.parkedBeforeBurst.parked = $null }
+        }
+        { New-SeriesReport -SeriesPath $noParkedBase -TopUpSeriesPath $topupSeries -ChecksOnly } | Should -Throw '*original ceiling boot 0*'
+    }
+    It 'refuses a top-up outside the pre-registered ceiling series' {
+        $other = New-Series -Root (Join-Path $TestDrive 'topup-other')
+        { New-SeriesReport -SeriesPath $other -TopUpSeriesPath $topupSeries -ChecksOnly } | Should -Throw '*top-up*parking-retest-2-ceiling*'
+        { New-SeriesReport -SeriesPath $topupSeries -ChecksOnly } | Should -Throw '*top-up*SeriesPath*'
+    }
+    It 'refuses a different top-up design' {
+        $wrongCount = New-Series -Root (Join-Path $TestDrive 'topup-wrong-count') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 2
+        { New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $wrongCount -ChecksOnly } | Should -Throw '*top-up*1 boot*'
+        $wrongName = New-Series -Root (Join-Path $TestDrive 'topup-wrong-name') -Series 'other-top-up' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1
+        { New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $wrongName -ChecksOnly } | Should -Throw '*top-up series*'
+        $wrongOrder = New-Series -Root (Join-Path $TestDrive 'topup-wrong-order') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1 -MutatePlan {
+            param($plan)
+            $states = @($plan.boots[0].states)
+            $plan.boots[0].states = @($states[2], $states[3], $states[0], $states[1], $states[4], $states[5])
+        }
+        { New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $wrongOrder -ChecksOnly } | Should -Throw '*top-up*order*'
+        $wrongConstant = New-Series -Root (Join-Path $TestDrive 'topup-wrong-constant') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1 -MutatePlan { param($plan) $plan.captureSeconds = 90 }
+        { New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $wrongConstant -ChecksOnly } | Should -Throw '*top-up*captureSeconds*'
+    }
+    It 'checks the environment of a step whose outcome is not consumed' {
+        $drifted = New-Series -Root (Join-Path $TestDrive 'topup-drifted') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1 -Mutate {
+            param($ctx)
+            if ($ctx.Boot -eq 0 -and $ctx.StateIndex -eq 5) { $ctx.Bench.metadata.os.build = '26301' }
+        }
+        { New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $drifted -ChecksOnly } | Should -Throw '*top-up*metadata.os.build*'
+        $missingField = New-Series -Root (Join-Path $TestDrive 'topup-missing-field') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1 -Mutate {
+            param($ctx)
+            if ($ctx.Boot -eq 0 -and $ctx.StateIndex -eq 5) { $ctx.Bench.frames.Remove('avgFps') }
+        }
+        { New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $missingField -ChecksOnly } | Should -Throw '*frames.avgFps*'
+    }
+    It 'leaves five pairs when the top-up pair is excluded and permits no fallback' {
+        $excluded = New-Series -Root (Join-Path $TestDrive 'topup-excluded') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1 -Mutate {
+            param($ctx)
+            if ($ctx.Label -eq 'maxcores25' -and $ctx.Step -eq 'burst') { $ctx.Bench.ppm.captureChanges = 1 }
+        }
+        $report = New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $excluded -ChecksOnly
+        $report.Summary.analysis.rowBoots[0].boots | Should -Be 5
+        $report.Markdown | Should -Match 'ceiling top-up tested pair only'
+        $noParked = New-Series -Root (Join-Path $TestDrive 'topup-no-parked') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1 -Mutate {
+            param($ctx)
+            if ($ctx.Label -eq 'maxcores25' -and $ctx.Step -eq 'burst') { $ctx.Bench.parkedBeforeBurst.parked = $null }
+        }
+        $missing = New-SeriesReport -SeriesPath $topupBase -TopUpSeriesPath $noParked -ChecksOnly
+        $missing.Summary.analysis.rowBoots[0].boots | Should -Be 5
+        $missing.Markdown | Should -Match 'no parked-core reading'
+    }
+}
+
 Describe 'the tier-1 refusals' {
     It 'refuses <Name>' -ForEach @(
         @{ Name = 'a planned step without an accepted result'; Message = '*boot 1 state 3 : expected exactly one accepted result*found 0*'; MutateJournal = { param($j) $j[2].states = @($j[2].states | Where-Object { $_.index -ne 3 }) } }
@@ -611,6 +711,23 @@ Describe 'the script entry point' {
             $md = Join-Path $TestDrive "engines-$name.md"
             $json = Join-Path $TestDrive "engines-$name.json"
             & $engine.Source -NoProfile -ExecutionPolicy Bypass -File $tool -SeriesPath $root -MarkdownPath $md -SummaryPath $json
+            [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($md)) + '|' + ((Get-Content -LiteralPath $json -Raw | ConvertFrom-Json | ConvertTo-Json -Depth 20 -Compress) -replace '(\d)\.0(?=[,}\]])', '$1')
+        }
+        $bytes[0] | Should -Be $bytes[1]
+    }
+    It 'writes byte-identical checks-only top-up output under both engines' {
+        $base = New-Series -Root (Join-Path $TestDrive 'topup-engines-base') -Series 'parking-retest-2-ceiling' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 6 -Mutate {
+            param($ctx)
+            if ($ctx.Boot -eq 0 -and $ctx.Label -eq 'maxcores25' -and $ctx.Step -eq 'burst') { $ctx.Bench.ppm.captureChanges = 1 }
+        }
+        $topUp = New-Series -Root (Join-Path $TestDrive 'topup-engines-series') -Series 'parking-retest-2-ceiling-topup' -Labels $seriesDesigns['parking-retest-2-ceiling'].units -Boots 1
+        $engines = @('pwsh', 'powershell') | ForEach-Object { Get-Command $_ -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1 }
+        if (@($engines).Count -lt 2) { Set-ItResult -Skipped -Because 'one of the two engines is not installed'; return }
+        $bytes = foreach ($engine in $engines) {
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($engine.Source)
+            $md = Join-Path $TestDrive "topup-engines-$name.md"
+            $json = Join-Path $TestDrive "topup-engines-$name.json"
+            & $engine.Source -NoProfile -ExecutionPolicy Bypass -File $tool -SeriesPath $base -TopUpSeriesPath $topUp -ChecksOnly -MarkdownPath $md -SummaryPath $json
             [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($md)) + '|' + ((Get-Content -LiteralPath $json -Raw | ConvertFrom-Json | ConvertTo-Json -Depth 20 -Compress) -replace '(\d)\.0(?=[,}\]])', '$1')
         }
         $bytes[0] | Should -Be $bytes[1]
